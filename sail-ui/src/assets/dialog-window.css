@@ -1,0 +1,152 @@
+/* 系统弹窗统一窗口操作；保留原有层级，图片预览继续使用自己的全屏交互。 */
+.sail-window {
+  pointer-events: auto;
+}
+.sail-window-header {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.sail-window-header :is(button, a, input, textarea, select, [role='combobox'], [contenteditable='true']) {
+  touch-action: auto;
+  user-select: auto;
+}
+.sail-window-dragging {
+  cursor: grabbing;
+}
+.sail-window
+  > :is(
+    [data-slot='dialog-header'],
+    [data-slot='alert-dialog-header'],
+    [data-slot='sheet-header'],
+    [data-slot='drawer-header']
+  ) {
+  padding-right: 64px;
+}
+.sail-window-toggle {
+  position: absolute;
+  top: 12px;
+  right: 46px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  background: transparent;
+  cursor: pointer;
+}
+.sail-window-toggle:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.sail-window-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.sail-window-toggle > svg {
+  pointer-events: none;
+}
+.sail-window > [data-slot='dialog-close'] {
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+.sail-window:not(:has(> [data-slot='dialog-close'], > .ant-modal-close, .ant-drawer-close)) > .sail-window-toggle {
+  right: 12px;
+}
+.sail-window.ant-drawer-content > .sail-window-toggle {
+  top: 17px;
+  right: 16px;
+}
+.sail-window .ant-modal-header,
+.sail-window .ant-modal-confirm-title {
+  padding-right: 52px;
+}
+.sail-window .ant-drawer-header {
+  padding-right: 56px;
+}
+/* 常规弹窗正文单独滚动，长表单不再将底部操作挤出屏幕。 */
+.ant-modal:has(.ant-modal-content.sail-window) {
+  top: 24px;
+  max-height: calc(100dvh - 48px);
+  padding-bottom: 0;
+}
+.ant-modal:has(.sail-window) > div:first-child {
+  max-height: inherit;
+}
+.ant-modal .ant-modal-content.sail-window {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+.ant-modal .sail-window > .ant-modal-body {
+  min-height: 0;
+  overflow: auto;
+}
+.ant-modal .sail-window > :is(.ant-modal-header, .ant-modal-footer) {
+  flex-shrink: 0;
+}
+/* 位移后停用入场变换，避免动画与固定坐标叠加。 */
+.sail-window-positioned {
+  animation: none !important;
+  transition: none !important;
+}
+.sail-window-fullscreen {
+  border-radius: 0 !important;
+  padding-bottom: 0;
+}
+.sail-window-fullscreen.ant-modal {
+  padding: 0;
+}
+.sail-window-fullscreen.sail-window {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding-bottom: 24px;
+}
+.sail-window-fullscreen.sail-window > * {
+  flex-shrink: 0;
+}
+.sail-window-fullscreen.sail-window > .min-h-0 {
+  flex-shrink: 1;
+}
+.sail-window-fullscreen.sail-window[class~='p-0'] {
+  padding-bottom: 0;
+}
+.sail-window-fullscreen.ant-modal > div:first-child {
+  height: 100%;
+}
+.sail-window-fullscreen .ant-modal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+}
+.sail-window-fullscreen .ant-modal-content > .ant-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.sail-window-fullscreen .ant-modal-content > :is(.ant-modal-header, .ant-modal-footer) {
+  flex-shrink: 0;
+}
+.sail-window-fullscreen .ant-modal-confirm-body-wrapper {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.sail-window-fullscreen .ant-modal-confirm-body {
+  flex: 1;
+  overflow: auto;
+}

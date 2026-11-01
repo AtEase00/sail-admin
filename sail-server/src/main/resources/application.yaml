@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: sail-admin
+  profiles:
+    default: local
+  sql:
+    init:
+      mode: never # base.sql 由操作者手工导入，应用不自动建表。
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 2
+      connection-timeout: 10000
+      validation-timeout: 3000
+  data:
+    redis:
+      connect-timeout: 3s
+      timeout: 3s
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+  jackson:
+    time-zone: Asia/Shanghai
+server:
+  port: 8081
+  shutdown: graceful
+  tomcat:
+    max-http-form-post-size: 2MB
+    max-swallow-size: 2MB
+    max-part-count: 20
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 28800
+  active-timeout: 1800
+  is-concurrent: true
+  is-share: false
+  is-read-cookie: false
+  is-read-header: true
+  is-read-body: false
+  is-log: false
+  token-style: uuid
+sail:
+  storage:
+    max-bytes: 20971520
+  redis:
+    legacy-compatible: false
+  pay:
+    compensation-enabled: true
+    compensation-delay: 60000
+logging:
+  file:
+    name: ./logs/sail-admin.log
+  logback:
+    rollingpolicy:
+      max-history: 30
+      max-file-size: 50MB
+  pattern:
+    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [traceId=%X{traceId}] %logger{40} - %msg%n'
+    # 控制台按级别着色，并区分时间、链路标识和日志来源。
+    console: '%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5level) %clr([traceId=%X{traceId}]){magenta} %clr(%logger{40}){cyan} - %msg%n'

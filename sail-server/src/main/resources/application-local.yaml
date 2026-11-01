@@ -1,0 +1,50 @@
+# 开发环境直接配置，启动无需 .env；不覆盖数据库中已存在的管理员。
+spring:
+  # IDE 服务控制台不一定被识别为终端，开发环境显式启用 ANSI 颜色。
+  output:
+    ansi:
+      enabled: always
+  datasource:
+    url: 'jdbc:mysql://127.0.0.1:3306/sail_admin?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true'
+    username: root
+    password: '123456'
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      username: ''
+      password: '123456'
+      database: 0
+sail:
+  web:
+    # 开发控制台输出请求方法、路径、响应状态和耗时，与 SQL 共用追踪号。
+    request-log-enabled: true
+  security:
+    # 开发环境独立 AES-256 主密钥，沿用当前值以保留已有密文解密能力。
+    master-key: 'EZLKwl7sjefejoCS/XXI/hCYRnNiZjBLDSE+1fqERP8='
+  bootstrap:
+    # 开发初始密码为 123456，仅首次创建管理员时使用，后续可在后台修改。
+    username: 'admin'
+    password: '123456'
+    # 随机生成的开发初始管理员专属 BCrypt 盐，仅首次建号使用。
+    salt: '$2a$12$c./f8YJHT91xfuAC1iDalO'
+  storage:
+    local-root: ./storage
+  redis:
+    namespace: sail-admin-local
+    legacy-compatible: true
+  websocket:
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
+logging:
+  level:
+    sail: INFO
+    # Mapper SQL 使用 DEBUG 输出；适配器统一过滤参数值和查询结果行。
+    sail.system.mapper: DEBUG
+    sail.file.mapper: DEBUG
+    sail.message.mapper: DEBUG
+    sail.pay.mapper: DEBUG
+    # 消息任务与快照使用绑定参数 JDBC，仅输出 SQL 结构，不输出正文和人员参数。
+    org.springframework.jdbc.core.JdbcTemplate: DEBUG
+mybatis-plus:
+  configuration:
+    log-impl: sail.framework.mybatis.SqlConsoleLog

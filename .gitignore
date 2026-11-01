@@ -1,0 +1,14 @@
+**/target/
+.idea/
+.vscode/
+*.iml
+.env
+.env.*
+!.env.example
+storage/
+logs/
+.flattened-pom.xml
+*.log
+**/node_modules/
+**/dist/
+.pnpm-store/

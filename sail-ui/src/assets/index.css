@@ -1,0 +1,678 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: #1f2329;
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #00b96b;
+  --primary-text: #007a46;
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: #e6f8ef;
+  --accent-foreground: #006b3d;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: #00b96b;
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.25rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #00b96b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e6f8ef;
+  --sidebar-accent-foreground: #007a46;
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: #00b96b;
+  --primary-text: #58d9a0;
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: #113c2b;
+  --accent-foreground: #58d9a0;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: #00b96b;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #00b96b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #113c2b;
+  --sidebar-accent-foreground: #58d9a0;
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--reka-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--reka-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* 统一可操作控件的手型光标，覆盖上游组件的 cursor-default；保留侧栏拖拽光标。 */
+:where(
+    button,
+    a[href],
+    summary,
+    select,
+    input[type='button'],
+    input[type='submit'],
+    input[type='reset'],
+    input[type='checkbox'],
+    input[type='radio'],
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='menuitemcheckbox'],
+    [role='menuitemradio'],
+    [role='option'],
+    [role='combobox']:not(input):not(textarea),
+    [role='switch'],
+    [role='checkbox'],
+    [role='radio']
+  ):not(:disabled):not([disabled]):not([aria-disabled='true']):not([data-disabled]):not([data-slot='sidebar-rail']) {
+  cursor: pointer;
+}
+
+/* 禁用状态不显示可点击提示，也不改变组件原有的阻止交互行为。 */
+:where(button, input, select, textarea, [role], a[href]):is(
+  :disabled,
+  [disabled],
+  [aria-disabled='true'],
+  [data-disabled]
+) {
+  cursor: not-allowed;
+}
+
+input[type='file']:not(:disabled)::file-selector-button {
+  cursor: pointer;
+}
+
+/* shimmer */
+@property --shimmer-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 20deg;
+}
+@property --shimmer-image {
+  syntax: '*';
+  inherits: false;
+}
+@property --shimmer-text-fill {
+  syntax: '*';
+  inherits: false;
+}
+
+@theme inline {
+  @keyframes tw-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
+    }
+  }
+}
+
+@utility shimmer {
+  --_spread: var(--shimmer-spread, calc(3ch + 40px));
+  --_base: currentColor;
+  --_highlight: var(--shimmer-color, oklch(from currentColor l c h / calc(alpha* 0.2)));
+
+  background-image: var(
+    --shimmer-image,
+    linear-gradient(
+      calc(90deg + var(--shimmer-angle)),
+      var(--_base) calc(50% - var(--_spread)),
+      color-mix(in oklch, var(--_highlight), var(--_base) 50%) calc(50% - var(--_spread) * 0.5),
+      var(--_highlight) 50%,
+      color-mix(in oklch, var(--_highlight), var(--_base) 50%) calc(50% + var(--_spread) * 0.5),
+      var(--_base) calc(50% + var(--_spread))
+    )
+  );
+  background-repeat: no-repeat;
+  background-size: calc(200% + var(--_spread) * 2) 100%;
+  background-position: 0 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: var(--shimmer-text-fill, transparent);
+  animation: tw-shimmer var(--shimmer-duration, 2s) linear infinite;
+
+  @variant dark {
+    --_highlight: var(--shimmer-color, oklch(from currentColor max(0.8, calc(l + 0.4)) c h / calc(alpha + 0.4)));
+  }
+
+  &:where([dir='rtl'], [dir='rtl'] *) {
+    animation-direction: reverse;
+  }
+}
+
+@utility shimmer-once {
+  animation-iteration-count: 1;
+}
+
+@utility shimmer-reverse {
+  animation-direction: reverse;
+}
+
+@utility shimmer-none {
+  --shimmer-image: none;
+  --shimmer-text-fill: currentColor;
+}
+
+@utility shimmer-color-* {
+  --shimmer-color: --value(--color, [color]);
+  --shimmer-color: color-mix(in oklch, --value(--color, [color]) calc(--modifier(integer) * 1%), transparent);
+}
+
+@utility shimmer-duration-* {
+  --shimmer-duration: calc(--value(integer) * 1ms);
+}
+
+@utility shimmer-spread-* {
+  --shimmer-spread: calc(var(--spacing) * --value(integer));
+  --shimmer-spread: --value([length], [percentage]);
+}
+
+@utility shimmer-angle-* {
+  --shimmer-angle: calc(--value(integer) * 1deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+/* 表单统一采用 Ant Design 的控件尺度、边框反馈和布局节奏。 */
+:root {
+  --control-border: #d9d9d9;
+  --control-placeholder: #737373;
+  --control-disabled: #f5f5f5;
+}
+.dark {
+  --control-border: #505050;
+  --control-placeholder: #a3a3a3;
+  --control-disabled: #262626;
+}
+:where(
+  [data-slot='input'],
+  [data-slot='textarea'],
+  [data-slot='select-trigger'],
+  [data-slot='combobox-input'],
+  input[type='date'],
+  input[type='datetime-local'],
+  select
+) {
+  min-height: 32px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+:where([data-slot='input'], [data-slot='textarea'], [data-slot='select-trigger'], input[type='date'], select):hover:not(
+    :disabled
+  ) {
+  border-color: var(--primary);
+}
+:where(
+  [data-slot='input'],
+  [data-slot='textarea'],
+  [data-slot='select-trigger'],
+  [data-slot='combobox-input'],
+  input[type='date'],
+  select
+):is(:focus, :focus-visible, [data-state='open']) {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+:where(input, textarea)::placeholder {
+  color: var(--control-placeholder);
+  opacity: 1;
+}
+:where([data-slot='input'], [data-slot='textarea'], [data-slot='select-trigger'], select):disabled {
+  background-color: var(--control-disabled);
+  color: var(--muted-foreground);
+  opacity: 1;
+  cursor: not-allowed;
+}
+:where(input, textarea, select)[aria-invalid='true'] {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+:where([data-slot='select-item'], [data-slot='combobox-item'], [role='option'])[data-highlighted] {
+  background: var(--muted);
+}
+:where([data-slot='select-item'], [data-slot='combobox-item'], [role='option'])[data-state='checked'],
+[role='option'][aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: 600;
+}
+:where([data-slot='button']) {
+  box-shadow: none;
+}
+:where([data-slot='button'])[aria-pressed='true']:not(.bg-primary) {
+  border-color: var(--primary);
+  background: var(--accent);
+  color: var(--primary-text);
+}
+:where([data-slot='checkbox'], [data-slot='radio-group-item']) {
+  box-shadow: none;
+  border-color: var(--control-border);
+}
+:where([data-slot='checkbox'], [data-slot='radio-group-item']):hover:not(:disabled) {
+  border-color: var(--primary);
+}
+[data-slot='checkbox'][data-state='checked'],
+[data-slot='checkbox'][data-state='indeterminate'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+input:is([type='checkbox'], [type='radio']),
+input[type='range'] {
+  accent-color: var(--primary);
+}
+input:is([type='checkbox'], [type='radio']) {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.sail-form {
+  --form-label-width: 100px;
+}
+.sail-form > .space-y-2 {
+  display: grid;
+  grid-template-columns: var(--form-label-width) minmax(0, 1fr);
+  gap: 8px 16px;
+  align-items: start;
+  margin-block: 0 20px;
+}
+.sail-form > .space-y-2 > label:first-child {
+  justify-content: flex-end;
+  text-align: right;
+  line-height: 32px;
+  font-weight: 400;
+  font-size: 14px;
+}
+.sail-form > .space-y-2 > :not(label:first-child) {
+  grid-column: 2;
+  margin: 0;
+}
+.sail-form > .space-y-2:has(:required, [aria-required='true']) > label:first-child::before {
+  content: '*';
+  color: var(--destructive);
+  margin-right: 4px;
+}
+.sail-form :where([data-slot='input'], [data-slot='select-trigger']) {
+  height: 32px;
+}
+.sail-form [data-slot='textarea'] {
+  min-height: 88px;
+  resize: vertical;
+}
+.sail-form > [data-slot='dialog-footer'] {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.sail-field-error {
+  grid-column: 2;
+  margin-top: 4px;
+  color: var(--destructive);
+  font-size: 12px;
+  line-height: 20px;
+}
+.sail-form > [role='alert'] {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--destructive) 5%, var(--background));
+  border: 1px solid color-mix(in srgb, var(--destructive) 25%, var(--border));
+  padding: 8px 12px;
+}
+.sail-form.sail-form-vertical > .space-y-2 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sail-form.sail-form-vertical > .space-y-2 > label:first-child {
+  justify-content: flex-start;
+  text-align: left;
+  line-height: 22px;
+}
+.sail-form input[type='file'] {
+  padding: 8px;
+  border: 1px dashed var(--control-border);
+  border-radius: 4px;
+  width: 100%;
+}
+.sail-form input[type='file']::file-selector-button {
+  margin-right: 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  background: var(--background);
+}
+[data-workspace-tabs] [aria-current='page'] {
+  color: var(--primary-text);
+}
+@media (max-width: 639px) {
+  .sail-form > .space-y-2 {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sail-form > .space-y-2 > label:first-child {
+    justify-content: flex-start;
+    text-align: left;
+    line-height: 22px;
+  }
+  .sail-form > .space-y-2 > :not(label:first-child) {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(input, textarea, select, [data-slot='select-trigger'], [data-slot='switch-thumb']) {
+    transition-duration: 0s;
+  }
+}
+
+[data-slot='radio-group-item'][data-state='checked'] {
+  border-color: var(--primary);
+}
+.sail-form label:has(input[type='checkbox']:checked) {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+.sail-form .sail-form-help {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.sail-form.sail-form-vertical :where([data-slot='input'], [data-slot='select-trigger']) {
+  min-height: 40px;
+}
+[data-slot='slider-track'] {
+  height: 4px;
+}
+[data-slot='slider-thumb'] {
+  border: 2px solid var(--primary);
+  background: var(--background);
+  box-shadow: none;
+}
+
+.sail-form label:has([data-slot='checkbox'][data-state='checked']) {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+[data-slot='dialog-header'] {
+  text-align: left;
+}
+.sail-form > [data-slot='dialog-footer'] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.sail-list[data-density='compact'] [data-message-row] {
+  padding: 12px 16px;
+}
+.sail-list[data-density='normal'] [data-message-row] {
+  padding: 16px;
+}
+.sail-list[data-density='loose'] [data-message-row] {
+  padding: 24px 16px;
+}
+
+/* 日期浮层保持在系统表格全屏之上，双面板在小屏内横向滚动。 */
+.sail-date-range {
+  width: 100%;
+  height: 32px;
+}
+.sail-date-popup {
+  max-width: calc(100vw - 24px);
+}
+.sail-date-popup .ant-picker-panel-container {
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+}
+.sail-date-popup .ant-picker-panels {
+  flex-wrap: nowrap;
+}
+.sail-date-popup .ant-btn-primary {
+  color: #fff;
+}
+.sail-tab-strip {
+  scrollbar-width: none;
+}
+.sail-tab-strip::-webkit-scrollbar {
+  display: none;
+}
+.sail-shell > [data-slot='sidebar-inset'] {
+  background-color: var(--workspace-background, #f7fbf8);
+}
+.dark .sail-shell > [data-slot='sidebar-inset'] {
+  background-color: var(--background);
+}
+
+/* 字典标签采用统一语义色，后台仅配置有限色值。 */
+[data-tone='success'] {
+  color: #00874e;
+  border-color: #a2dbbf;
+  background: #f0faf5;
+}
+[data-tone='processing'] {
+  color: #165dba;
+  border-color: #b1cfee;
+  background: #f0f7ff;
+}
+[data-tone='warning'] {
+  color: #976000;
+  border-color: #e8cf91;
+  background: #fffbeb;
+}
+[data-tone='error'] {
+  color: #c53434;
+  border-color: #efbbbb;
+  background: #fff3f3;
+}
+.dark [data-tone] {
+  background: transparent;
+}
+.dark [data-tone='success'] {
+  color: #69d9a1;
+}
+.dark [data-tone='processing'] {
+  color: #8abdff;
+}
+.dark [data-tone='warning'] {
+  color: #ebc66b;
+}
+.dark [data-tone='error'] {
+  color: #ff9696;
+}
+
+/* 消息编辑与接收正文共享排版，按需页面未加载编辑器时同样生效。 */
+.message-body {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.85;
+}
+.message-body p {
+  margin: 0 0 10px;
+}
+.message-body h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+}
+.message-body h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 14px 0 8px;
+}
+.message-body ul {
+  list-style: disc;
+  padding-left: 24px;
+}
+.message-body ol {
+  list-style: decimal;
+  padding-left: 24px;
+}
+.message-body blockquote {
+  margin: 12px 0;
+  background: var(--muted);
+  padding: 10px 14px;
+}
+.message-body a {
+  color: var(--primary-text);
+  text-decoration: underline;
+}
+.message-body img {
+  display: block;
+  max-width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  margin: 12px 0;
+}
+.message-body hr {
+  margin: 16px 0;
+}
+
+/* 图标动效只在可操作元素悬停或键盘焦点时运行，保留原导航尺寸。 */
+.sail-animated-icon,
+.sail-animated-align path {
+  transition: transform 180ms ease-out;
+  transform-origin: center;
+}
+:is(a, button):is(:hover, :focus-visible) .sail-icon-rotate {
+  transform: rotate(90deg);
+}
+:is(a, button):is(:hover, :focus-visible) .sail-icon-ring {
+  transform: rotate(-15deg);
+}
+:is(a, button):is(:hover, :focus-visible) .sail-icon-pulse {
+  transform: scale(1.15);
+}
+:is(a, button):is(:hover, :focus-visible) .sail-icon-send {
+  transform: translate(1px, -1px);
+}
+.sail-animated-align path {
+  transform-origin: 3px center;
+}
+:is(a, button):is(:hover, :focus-visible) .sail-align-middle {
+  transform: scaleX(1.3333);
+}
+:is(a, button):is(:hover, :focus-visible) .sail-align-bottom {
+  transform: scaleX(0.6428);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sail-animated-icon,
+  .sail-animated-align path {
+    transition: none;
+    transform: none !important;
+  }
+}

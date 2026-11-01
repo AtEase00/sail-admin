@@ -1,0 +1,37 @@
+# 生产环境独立填写实际连接和密钥，空值表示尚未提供，不读取开发配置。
+spring:
+  datasource:
+    url: ''
+    username: ''
+    password: ''
+  data:
+    redis:
+      host: ''
+      port: 6379
+      username: ''
+      password: ''
+      database: 0
+  main:
+    allow-circular-references: false
+    allow-bean-definition-overriding: false
+  web:
+    error:
+      include-stacktrace: never
+      include-message: never
+server:
+  port: 8080
+sail:
+  security:
+    master-key: ''
+  bootstrap:
+    username: admin
+    password: ''
+    # 生产管理员与普通账号一样，首次设密由 BCrypt 生成独立随机盐。
+    salt: ''
+  storage:
+    local-root: ''
+  redis:
+    namespace: sail-prod
+    legacy-compatible: false
+  websocket:
+    allowed-origins: ''

@@ -1,0 +1,29 @@
+# 仅测试资源可见，与开发库、生产凭据隔离；测试动态属性提供随机 Redis 端口。
+spring:
+  datasource:
+    url: jdbc:h2:mem:sail;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=VALUE
+    username: sa
+    password: ''
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      username: ''
+      password: ''
+      database: 0
+sail:
+  security:
+    master-key: 't214liSQ4Q9RYeSLnDCVgwFA+uK/J+DUxHH/FL4we+E='
+  bootstrap:
+    username: admin
+    password: 'SailTestOnly!2026'
+    salt: '$2a$12$w0snsmfYuQLcwmyLSn9iD.'
+  storage:
+    local-root: ./target/test-storage
+  redis:
+    namespace: sail-test
+    legacy-compatible: false
+  websocket:
+    allowed-origins: http://localhost
+  pay:
+    compensation-enabled: false
