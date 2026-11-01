@@ -65,4 +65,3 @@
 截图来自真实流程，截图中的验收数据现已清理：
 
 - [修复后的消息抽屉](screenshots/message-drawer-fixed-20261101.png)
-- [自动弹窗公告](screenshots/announcement-popup-20261101.png)

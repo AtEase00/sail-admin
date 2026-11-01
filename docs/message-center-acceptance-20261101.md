@@ -81,7 +81,6 @@
 
 截图均在真实流程中取得，截图内验收资料现已清理：
 
-- [发布页](screenshots/message-compose-20261101.png)
 - [个人消息详情与确认](screenshots/message-inbox-detail-20261101.png)
 - [投递与回执](screenshots/message-receipts-20261101.png)
 - [窄屏发布页](screenshots/message-compose-mobile-20261101.png)

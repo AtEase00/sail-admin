@@ -25,4 +25,3 @@
 
 - [导航与主题设置](screenshots/navigation-theme-20261101.png)
 - [折叠导航悬停子菜单](screenshots/sidebar-hover-20261101.png)
-- [轻量图片全屏预览](screenshots/image-preview-lightweight-20261101.png)
