@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { reactive } from 'vue'
 
 import type { MessageTask } from '../message-center'
 
 import { cloneAudience, copyMessageDraft, messageUnavailable, newMessageDraft, sanitizeMessageHtml, templateVariables } from '../message-center'
 
+afterEach(() => vi.unstubAllGlobals())
+
 describe('消息正文及发布边界', () => {
+  it('普通 HTTP 环境缺少 randomUUID 时仍生成合法且独立的发布幂等键', () => {
+    const getRandomValues = crypto.getRandomValues.bind(crypto)
+    vi.stubGlobal('crypto', { getRandomValues })
+    const first = newMessageDraft().requestKey
+    const second = newMessageDraft().requestKey
+    expect(first).toMatch(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/)
+    expect(second).not.toBe(first)
+  })
   it('阻断脚本、事件、主动链接与外部图片，保留私有附件引用和正常排版', () => {
     const html = sanitizeMessageHtml('<h2>通知</h2><p onclick="alert(1)">正文<script>alert(1)</script><a href="javascript:alert(1)">危险</a><a href="https://example.com">业务</a><img src="https://example.com/private" data-file-id="12" onerror="alert(1)"></p>')
     expect(html).toContain('<h2>通知</h2>')

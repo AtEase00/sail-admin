@@ -12,3 +12,7 @@ logs/
 **/node_modules/
 **/dist/
 .pnpm-store/
+/deploy/app/projects/**/secrets/
+/deploy/app/projects/sailadmin/sail-server-1.0.0.jar
+/deploy/app/projects/sailadmin/base.sql
+/deploy/app/projects/.deploy.lock

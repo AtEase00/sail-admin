@@ -1,0 +1,5 @@
+server {
+    listen 80;
+    server_name ${SAIL_PUBLIC_HOST};
+    include /etc/nginx/conf.d/site.inc;
+}

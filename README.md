@@ -60,6 +60,7 @@ sail-admin/
 ├── sail-gateway/             # 预留模块，不作为当前部署入口
 ├── sail-ui/                  # Vue 管理前端
 ├── scripts/                  # 本地启动及已有库增量脚本
+├── deploy/app/               # 复制到生产 /app 的 Compose、组件配置与运维脚本
 ├── docs/                     # 接口资料、历史验收记录及页面截图
 └── mvnw.ps1                  # 固定 Maven 3.9.11 的 PowerShell 入口
 ```
@@ -143,38 +144,184 @@ corepack pnpm build
 
 ## 生产部署
 
-首期部署一个 `sail-server` 后端进程，使用同一 HTTPS 域名提供前端静态文件、`/api/` 和 `/ws/`。构建产物是 `sail-server/target/sail-server-1.0.0.jar` 与完整的 `sail-ui/dist/`；运行服务器不需要 Maven、Node.js 或前端 `node_modules`。MySQL、Redis、Nginx、证书及进程管理由操作者人工准备。本项目尚无正式域名、服务器路径、生产连接和商户资料，不能将 local 配置或以下要求当作已完成的生产部署。
+目标服务器为 Debian/Ubuntu x86_64。MySQL 8.4、Redis 7、Nginx 和一个 Sail Admin 后端实例由 [Compose](deploy/app/projects/compose.yaml) 运行；操作者负责安装 Docker Engine / Compose 插件、构建并传输产物、执行脚本。公网 IPv4 或域名均可通过 HTTP 访问，证书仅在启用 HTTPS 时需要。公网 HTTP 登录会明文传输账号和密码，应在服务器或云防火墙只允许管理人员的来源 IP 访问 80 端口，不能把它当作安全的正式入口。生产前端为静态文件，不在服务器安装 Node.js；后端镜像只需要预先构建的 JAR。
 
-### 外部配置
+### 目录与持久化
 
-生产启动时显式启用 `prod`，并通过 Spring 的 `spring.config.additional-location` 加载服务器上的独立 `application-prod.yaml`。当前仓库内的生产 YAML 留空关键值，部署前必须按实际环境填写：
+将仓库的 `deploy/app/` 内容复制到目标机 `/app/`。部署包只带配置和脚本；运行时数据、证书、密钥、构建产物留在目标服务器。
 
-| 配置 | 生产要求 |
-| --- | --- |
-| `spring.datasource.url/username/password` | 指向独立 MySQL 数据库和具有业务所需权限的账号；新空库人工导入 `base.sql`，已有库核对结构后迁移 |
-| `spring.data.redis.host/port/username/password/database`、`sail.redis.namespace` | 指向实际 Redis，命名空间与其他环境隔离；Redis 7 保持 `sail.redis.legacy-compatible=false` |
-| `sail.security.master-key` | 使用 Base64 编码的 32 字节密钥；迁移已有加密配置时保留原密钥，或先制定重加密方案 |
-| `sail.bootstrap.username/password/salt` | 仅首次创建管理员时使用；生产设置独立初始口令，`salt` 可留空由 BCrypt 生成 |
-| `sail.storage.local-root` | 使用持久化绝对路径，并赋予应用账号读写权限；迁移已有库时同步保留 `<存储配置编号>/<对象 key>` 目录结构 |
-| `sail.websocket.allowed-origins` | 填浏览器实际访问的 HTTPS 来源；非标准端口也要匹配 |
-| `server.address/port`、`logging.file.name` | 后端仅对可信代理开放；生产端口默认 8080，日志写入独立持久化路径 |
+```text
+/app
+├── docker/daemon.json                      # Docker 数据根目录样例
+├── data/                                    # Docker 镜像、容器及运行日志
+├── projects/
+│   ├── .env                                # HTTP/HTTPS 与公开 IP/域名
+│   ├── compose.yaml                        # 四个服务的唯一编排文件
+│   ├── nginx/templates/                    # IP/域名 HTTP 与可选 HTTPS 入口
+│   ├── nginx/site.conf                     # 静态资源、API 和 WS 共用代理
+│   ├── mysql/conf.d/                        # MySQL 字符集和时区
+│   ├── redis/redis.conf                     # RDB + AOF；ACL 在 redis/secrets/
+│   └── sailadmin/                           # Dockerfile、外部 YAML、manage.sh
+│       ├── sail-server-1.0.0.jar            # 本地打包后上传的后端 JAR
+│       ├── dist/                            # 本地构建后上传的前端文件
+│       ├── base.sql                         # 仅首次初始化空库需要
+│       └── secrets/                         # AES 主密钥和管理员首次密码
+├── volumes/
+│   ├── mysql/data/                          # MySQL 数据文件
+│   ├── redis/data/                          # dump.rdb 与 appendonlydir/ 整体
+│   ├── nginx/certs/                         # fullchain.pem、privkey.pem
+│   └── sailadmin/storage/                   # 上传文件
+├── logs/nginx/、logs/sailadmin/              # 自定义访问与应用日志
+└── backups/sailadmin/                       # SQL、Redis、文件和配置的备份
+```
 
-前端生产构建使用同源接口：`VITE_SERVER_API_URL` 留空、`VITE_SERVER_API_PREFIX=/api`。这些值会写入静态资源，修改后需要重新构建。`SAIL_BACKEND_URL` 只控制 Vite 开发代理，不会配置生产 Nginx。支付应用与渠道需在后台录入真实微信/支付宝商户材料、公网 HTTPS 回调地址；MinIO 和阿里云 OSS 需实际 endpoint、bucket 与凭据。缺少资料时保持对应能力未启用，不能把启动成功视为外部联调通过。
+MySQL 与 Redis 不映射宿主机端口，并且只接入后端所在的数据网络；Nginx 只接入前后端网络。HTTP 模式由 80 端口提供页面，HTTPS 模式由 80 跳转到 443；Compose 中 443 端口虽始终映射，HTTP 模式没有 HTTPS 监听。`/api/`、`/ws/` 由 Nginx 保留原路径代理到后端 8080；`/actuator/` 不对公网开放。Redis 7 的 AOF 由多个文件组成，恢复时必须保持同一次备份中的 `appendonlydir/` 完整，不得拼接不同时间的 AOF 与 `dump.rdb`。
 
-### Nginx 要点
+### 安装与首次准备
 
-- `/` 提供 `dist/`，前端路由刷新回退到 `index.html`；入口 HTML 避免长期缓存，带内容哈希的资源可以缓存。
-- `/api/` 代理到生产后端时保留原路径，不剥离 `/api` 前缀；`/ws/` 同样保留路径，并支持 HTTP/1.1、`Upgrade`、`Connection` 及适合长连接的读取超时。
-- 转发实际 `Host` 和协议、客户端地址相关请求头。WebSocket 来源白名单按浏览器看到的正式来源填写。支付平台回调路径不能被代理层额外的登录校验阻断，应用仍负责回调验签。
-- 代理上传限制须覆盖应用的单文件 20 MiB、请求 21 MiB 上限；`/actuator/health` 只供内部检查。前端与支付回调使用有效 HTTPS 证书。
+目标机只需 Docker Engine、`docker-buildx-plugin`、`docker-compose-plugin`、`openssl` 和 `util-linux`。MySQL、Redis、Nginx 由 Compose 拉取镜像；后端的 **JRE 21 已在 [`Dockerfile`](deploy/app/projects/sailadmin/Dockerfile) 中使用 `eclipse-temurin:21-jre-jammy`**，服务器不安装 Maven、JDK、Node.js 或 pnpm。新装 Docker 时按 [Debian 官方指南](https://docs.docker.com/engine/install/debian/) 或 [Ubuntu 官方指南](https://docs.docker.com/engine/install/ubuntu/) 配置 Docker 软件源并安装上述插件，检查 `docker compose version`。首次设置 Docker 数据根目录前，先检查 `/etc/docker/daemon.json` 和已有 Docker 数据；已有配置需要人工合并，不能直接覆盖或丢弃原数据。合并后的配置应包含 `"data-root": "/app/data"`，样例在 [`daemon.json`](deploy/app/docker/daemon.json)。重启 Docker 后确认 `docker info --format '{{.DockerRootDir}}'` 输出 `/app/data`。
 
-### 人工上线与回滚
+把部署包复制到 `/app` 后，以 root 在目标机执行：
 
-1. 确认域名、证书、服务器目录、服务账号、MySQL、Redis 和持久化文件目录。确定是新空库还是迁移已有库。
-2. 备份现有数据库、文件、AES 主密钥及上一版 JAR/前端静态文件。迁移旧环境时暂停写入和后台任务，再同步最终数据与文件，避免两边继续产生不同记录。
-3. 执行前后端构建，把 JAR 和完整 `dist/` 放入新版本目录，填写并检查独立的生产配置。数据库脚本由操作者按实际结构选择，不能在已有库重导 `base.sql`。
-4. 人工启动单个后端进程，检查启动日志和内部健康接口；再接入 Nginx，核对登录、菜单授权、数据范围、消息收发、文件上传预览下载和 WebSocket 重连。真实支付需单独验证下单、回调、查单、关单及退款，云存储需验证实际读写。
-5. 确认后切换正式流量，保留上一版本与备份。回滚前核对旧版应用和当前数据库结构是否兼容；存在不兼容变更时先制定数据库恢复或兼容迁移。恢复旧备份会丢失备份后的写入，上传目录与主密钥不随应用版本删除。
+```bash
+sudo bash /app/projects/sailadmin/manage.sh prepare
+sudoedit /app/projects/.env
+```
+
+`prepare` 只在秘密文件不存在时生成 MySQL root/业务账号密码、Redis 密码、Base64 32 字节 AES 主密钥和首次管理员密码；重复运行不会轮换它们。它也创建持久化目录，设定应用目录权限，并从 Redis 密码生成 ACL 哈希。公开入口一次选择一种：无论使用公网 IP 还是域名，HTTP 模式均填 `SAIL_SCHEME=http`、`SAIL_PUBLIC_HOST=<实际 IP 或域名>`，不需要证书。只有启用 HTTPS 时才把域名证书链和私钥放到 `/app/volumes/nginx/certs/fullchain.pem`、`privkey.pem`，`check` 会检查域名、有效期和密钥配对。
+
+| 访问方式 | `SAIL_SCHEME` | `SAIL_PUBLIC_HOST` | 证书 |
+| --- | --- | --- | --- |
+| 公网 IP 直连 | `http` | 服务器实际公网 IPv4 | 不需要 |
+| 域名直连 | `http` | 实际域名 | 不需要 |
+| 域名 HTTPS | `https` | 实际域名 | 需要匹配的证书链和私钥 |
+
+`prepare` 还会将 `/app/projects/mysql/conf.d/sailadmin.cnf` 设为 `0644`。MySQL 会忽略可被所有用户写入的配置文件；首次导入时脚本与 `base.sql` 均显式使用 `utf8mb4`，避免中文种子数据按错误客户端字符集入库。配置权限变更后，已运行的 MySQL 容器要重启才能重新读取服务端配置。
+
+生产配置在 [`application-prod.yaml`](deploy/app/projects/sailadmin/application-prod.yaml)：MySQL、Redis 使用 Compose 内部主机名，敏感字段由 Docker secrets 以 Spring Config Tree 注入。WebSocket 来源由 `SAIL_SCHEME` 和 `SAIL_PUBLIC_HOST` 生成；切换公开入口后须重建后端与 Nginx 容器。密钥、密码、证书和 `/app/projects/.env` 均不可提交到 Git。初始管理员密码在 `/app/projects/sailadmin/secrets/admin_password`，登录后应立即更改；后续启动不会重置管理员密码。已产生加密配置后不得随意轮换 AES 主密钥，否则旧数据无法解密。
+
+### 首次上线
+
+1. **本地打包。** 在仓库根目录使用 PowerShell 7，准备 JDK 21、Node.js >= 22.15。前端生产构建显式使用同源 `/api`；`SAIL_BACKEND_URL` 仅用于开发代理。
+
+```powershell
+.\mvnw.ps1 '-DskipTests' package
+Push-Location sail-ui
+corepack pnpm install --frozen-lockfile
+$env:VITE_SERVER_API_URL = ''
+$env:VITE_SERVER_API_PREFIX = '/api'
+corepack pnpm build
+Pop-Location
+tar -czf sailadmin-deploy.tar.gz -C deploy/app .
+tar -czf sailadmin-dist.tar.gz -C sail-ui/dist .
+```
+
+2. **上传文件。** 在本地 PowerShell 中把 SSH 地址填入 `$Server`，传到目标机 `/tmp/`。SQL 仅用于第一次空库初始化；以后只上传变动的 JAR、前端包和确实需要的增量迁移脚本。服务器不需要拉取源码。
+
+```powershell
+$Server = '<SSH用户>@<服务器地址>'
+scp .\sailadmin-deploy.tar.gz "${Server}:/tmp/"
+scp .\sailadmin-dist.tar.gz "${Server}:/tmp/"
+scp .\sail-server\target\sail-server-1.0.0.jar "${Server}:/tmp/"
+scp .\sail-server\src\main\resources\db\base.sql "${Server}:/tmp/"
+```
+
+3. **安装并设置 Docker。** 新的 Debian/Ubuntu x86_64 服务器可按以下命令添加 Docker 官方软件源。已有 Docker 时先核对版本和数据目录，跳过安装，不能直接覆盖已有配置或数据。
+
+```bash
+. /etc/os-release
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl openssl util-linux
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' "$(dpkg --print-architecture)" "$ID" "$VERSION_CODENAME" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo docker compose version
+```
+
+将部署包解压到 `/app`。如果是全新 Docker 环境且 `/etc/docker/daemon.json` 不存在，执行以下命令；已有 Docker 数据时先人工合并和迁移，不能直接覆盖。
+
+```bash
+sudo mkdir -p /app
+sudo tar -xzf /tmp/sailadmin-deploy.tar.gz -C /app
+sudo install -D -m 0644 /app/docker/daemon.json /etc/docker/daemon.json
+sudo systemctl restart docker
+sudo docker info --format '{{.DockerRootDir}}'
+```
+
+最后一行应为 `/app/data`。首次执行 `sudo bash /app/projects/sailadmin/manage.sh prepare`，它会生成 MySQL/Redis 密码、AES 主密钥和初始管理员密码，并创建 `/app/volumes`、`/app/logs`、`/app/backups` 下的对应目录。随后编辑 `/app/projects/.env`：HTTP 访问填 `SAIL_SCHEME=http`，`SAIL_PUBLIC_HOST` 填浏览器实际访问的服务器公网 IPv4 或域名，不填写协议、端口或示例域名。
+
+4. **放置产物。** JAR 直接放 `/app/projects/sailadmin/sail-server-1.0.0.jar`，前端放 `/app/projects/sailadmin/dist/`；`dist` 中应直接包含 `index.html`，不能多一层 `dist/`。首次空库初始化另需上传 `base.sql`。如果 JAR 已经在指定位置，不必再复制一次。
+
+```bash
+sudo install -d -m 0755 /app/projects/sailadmin/dist
+sudo install -m 0644 /tmp/sail-server-1.0.0.jar /app/projects/sailadmin/sail-server-1.0.0.jar
+sudo install -m 0644 /tmp/base.sql /app/projects/sailadmin/base.sql
+sudo tar -xzf /tmp/sailadmin-dist.tar.gz -C /app/projects/sailadmin/dist
+```
+
+5. **启动完整链路。** `check` 验证目录、秘密、公开访问方式和 Compose；HTTPS 模式额外检查证书。`init-db` 先启动 MySQL/Redis，并且只向空库导入 `base.sql`；`deploy` 把本地上传的 JAR 包装为含 JRE 21 的后端镜像，启动后端，再由 Compose 启动 Nginx。Nginx 依赖后端地址，不能在首次部署时先于后端单独启动。
+
+```bash
+sudo bash /app/projects/sailadmin/manage.sh check
+sudo bash /app/projects/sailadmin/manage.sh init-db
+sudo bash /app/projects/sailadmin/manage.sh deploy
+sudo docker compose --env-file /app/projects/.env -f /app/projects/compose.yaml ps
+sudo docker compose --env-file /app/projects/.env -f /app/projects/compose.yaml logs --tail=200 sailadmin nginx
+```
+
+浏览器访问 `<SAIL_SCHEME>://<SAIL_PUBLIC_HOST>/`。Nginx 提供 `dist`，把 `/api/` 和 `/ws/` 转发到 Compose 内的后端 `sailadmin:8080`；后端通过内部数据网络连接 `mysql:3306` 和 `redis:6379`。核对登录、权限、消息、WebSocket 重连、文件上传/预览/下载。`init-db` 失败后可能留下部分表，不能直接重跑；支付和云存储的公网回调仍需 HTTPS 域名与真实商户资料后另行联调。
+
+如果旧版配置曾因权限过宽被 MySQL 忽略，并且中文种子数据已出现乱码，先确认库中没有必须保留的业务数据。更新 `/app` 部署包并确认正确的 `base.sql` 已在 `/app/projects/sailadmin/base.sql` 后，执行 `sudo bash /app/projects/sailadmin/manage.sh prepare` 修正配置权限，再运行 `sudo bash /app/projects/sailadmin/manage.sh reset-db --confirm-empty`。该命令先备份当前库、Redis 和上传文件，再删除并重建**仅 `sail_admin` 数据库**、以 `utf8mb4` 导入基础 SQL、清除该独立 Redis 实例的 0 号库，并重新启动应用。它会删除当前数据库记录；已有需保留的数据时不能使用。完成后重新登录，核对岗位名称与菜单中文。
+
+### 访问入口切换
+
+已有域名但不配置证书时，将 DNS A 记录指向服务器公网 IP，确认解析生效且 80 端口允许访问。编辑 `/app/projects/.env`，保留 `SAIL_SCHEME=http`，仅把 `SAIL_PUBLIC_HOST` 从 IP 改成实际域名，然后运行：
+
+```bash
+sudo bash /app/projects/sailadmin/manage.sh check
+sudo bash /app/projects/sailadmin/manage.sh switch-origin
+```
+
+访问 `http://<实际域名>/`；消息连接使用同域名的 `ws://`。该切换只重建后端和 Nginx 容器，不重新导入数据库，也不要求重新打包 JAR 或 `dist`。浏览器从 IP 切到域名属于不同来源，需要重新登录。HTTP 不加密，后台账号密码及会话信息会在网络上传输明文。
+
+若要从域名切回公网 IP，将 `/app/projects/.env` 设为 `SAIL_SCHEME=http`、`SAIL_PUBLIC_HOST=<服务器实际公网 IPv4>`，再执行相同的 `check` 和 `switch-origin` 命令。三种入口择一使用；切换后按新地址重新登录。
+
+以后若启用 HTTPS，再完成以下证书步骤。
+
+先将域名的 DNS A 记录指向服务器公网 IP，确认解析生效，再取得覆盖该域名的证书链与私钥。将实际证书文件安装到固定位置，私钥仅允许 root 读取；同时在服务器或云防火墙开放 443：
+
+```bash
+sudo install -m 0644 /实际证书链文件路径 /app/volumes/nginx/certs/fullchain.pem
+sudo install -m 0600 /实际私钥文件路径 /app/volumes/nginx/certs/privkey.pem
+```
+
+编辑 `/app/projects/.env`，把 `SAIL_SCHEME` 改为 `https`、`SAIL_PUBLIC_HOST` 改为实际域名。运行：
+
+```bash
+sudo bash /app/projects/sailadmin/manage.sh check
+sudo bash /app/projects/sailadmin/manage.sh switch-origin
+```
+
+`switch-origin` 使用当前已经构建的 JAR 镜像，只重建后端和 Nginx 容器，使 WebSocket 来源与 HTTPS 代理同时切换；MySQL、Redis、上传文件和数据库不重新初始化，JAR 与 `dist` 不用再次打包。验证 `https://<实际域名>/` 的登录、API 和 `wss://<实际域名>/ws/messages`，再更新支付回调等外部入口。浏览器从 IP 切到域名属于不同来源，用户需要重新登录。HTTPS 模板会把 80 端口请求跳转到 443。
+
+### 后续更新与回滚
+
+更新前先运行 `sudo bash /app/projects/sailadmin/manage.sh backup`。脚本暂停入口和后端写入，导出 MySQL，停止 Redis 后复制整套 RDB/AOF、上传文件、当前 JAR、`dist/`、秘密和配置到 `/app/backups/sailadmin/<备份目录名>/`，然后恢复服务。**备份成功后才覆盖固定路径的产物**；备份目录含敏感材料，只允许 root 访问，还应复制到独立介质并定期演练恢复。
+
+本地重新打包变动部分并上传到服务器 `/tmp/`。只改后端时，直接用 `sudo install -m 0644 /tmp/sail-server-1.0.0.jar /app/projects/sailadmin/sail-server-1.0.0.jar` 替换 JAR；只改前端时，将新的 `dist` 内容解压到 `/app/projects/sailadmin/dist/`；两者都改则都替换。更新前端文件期间先停 Nginx 和后端，避免浏览器读取到一半新、一半旧的静态文件：
+
+```bash
+sudo docker compose --env-file /app/projects/.env -f /app/projects/compose.yaml stop nginx sailadmin
+sudo install -m 0644 /tmp/sail-server-1.0.0.jar /app/projects/sailadmin/sail-server-1.0.0.jar
+sudo tar -xzf /tmp/sailadmin-dist.tar.gz -C /app/projects/sailadmin/dist
+sudo bash /app/projects/sailadmin/manage.sh check
+sudo bash /app/projects/sailadmin/manage.sh deploy
+```
+
+上例同时更新前后端；只更新一侧就省略另一侧的替换命令。`deploy` 从固定路径的 JAR 构建 `sailadmin:prod`，重建后端与 Nginx；不再执行 `init-db`。若本次涉及数据库变更，应先按[数据库升级](#数据库升级)核对结构并执行对应增量脚本；MySQL DDL 失败后先核查当前结构。需要回滚时，运行 `sudo bash /app/projects/sailadmin/manage.sh rollback <备份目录名>`，脚本先保存当前状态，再从指定备份恢复 JAR 与 `dist` 并重建容器。回滚前须确认旧应用兼容当前数据库；脚本**不会自动恢复数据库**。确需恢复数据时，应停写后成套恢复同一时间点的 SQL、上传文件、Redis 目录和 AES 主密钥，恢复会丢失该时间点之后的写入。
 
 ## 来源与许可
 

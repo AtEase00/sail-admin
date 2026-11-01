@@ -1,6 +1,7 @@
 import DOMPurify from 'dompurify'
 
 import { apiFetch, request } from '@/lib/api-client'
+import { createBrowserUuid } from '@/sail/browser-uuid'
 
 /** 接收范围只保存真实编号，最终收件人由后端解析。 */
 export interface MessageAudience { userIds: number[], deptIds: number[], roleIds: number[], postIds: number[], excludedIds: number[], includeChildren: boolean, all: boolean }
@@ -35,7 +36,7 @@ export interface AudiencePreview { count: number, fingerprint: string, version: 
 
 /** 创建新的幂等键；复制消息时必须生成新键。 */
 export function newMessageDraft(): MessageDraft {
-  return { requestKey: crypto.randomUUID(), version: 0, title: '', content: '', category: 'NOTICE', priority: 'NORMAL', requireConfirmation: false, displayMode: 'INBOX', pinned: false, scheduledAt: null, expiresAt: null, actionPath: null, audience: { userIds: [], deptIds: [], roleIds: [], postIds: [], excludedIds: [], includeChildren: true, all: false }, attachmentIds: [], templateCode: null }
+  return { requestKey: createBrowserUuid(), version: 0, title: '', content: '', category: 'NOTICE', priority: 'NORMAL', requireConfirmation: false, displayMode: 'INBOX', pinned: false, scheduledAt: null, expiresAt: null, actionPath: null, audience: { userIds: [], deptIds: [], roleIds: [], postIds: [], excludedIds: [], includeChildren: true, all: false }, attachmentIds: [], templateCode: null }
 }
 /** 复制只沿用可编辑内容，移除旧版本及客户端创建键。 */
 export function copyMessageDraft(task: MessageTask): MessageDraft {

@@ -7,6 +7,7 @@ import { computed, nextTick, ref } from 'vue'
 
 import type { PreviewFile } from '@/sail/file-preview'
 
+import { createBrowserUuid } from '@/sail/browser-uuid'
 import { FILE_ACCEPT } from '@/sail/file-preview'
 
 import FilePreview from './FilePreview.vue'
@@ -20,7 +21,7 @@ let selection: File[] | undefined
 /** 本地文件使用独立 UID，名称相同的两个文件不互相覆盖。 */
 function uid(file: File) {
   if (!ids.has(file))
-    ids.set(file, crypto.randomUUID())
+    ids.set(file, createBrowserUuid())
   return ids.get(file)!
 }
 const list = computed<UploadFile[]>(() => files.value.map(file => ({ uid: uid(file), name: file.name, size: file.size, type: file.type, originFileObj: file as UploadFile['originFileObj'] })))

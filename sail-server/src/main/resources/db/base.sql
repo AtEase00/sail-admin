@@ -2,6 +2,8 @@
 -- 逻辑删除统一为 deleted=0；删除时 SET deleted=id，不使用布尔值或时间戳代替。
 -- MySQL 不允许 CHECK 引用 AUTO_INCREMENT 列，因此该等值规则由应用删除语句保证。
 -- Sail Admin 初始业务结构；用户密码由首次启动参数生成，不在脚本内提供默认密码。
+SET NAMES utf8mb4;
+
 CREATE TABLE sys_audit (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键编号',
     `created_at` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间，上海时区',

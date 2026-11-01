@@ -1,0 +1,115 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_DATABASE: sail_admin
+      MYSQL_USER: sailadmin
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_app_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+    secrets:
+      - mysql_app_password
+      - mysql_root_password
+    volumes:
+      - /app/volumes/mysql/data:/var/lib/mysql
+      - /app/projects/mysql/conf.d/sailadmin.cnf:/etc/mysql/conf.d/sailadmin.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    networks:
+      - data
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - /app/projects/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - /app/projects/redis/secrets/users.acl:/usr/local/etc/redis/users.acl:ro
+      - /app/volumes/redis/data:/data
+    secrets:
+      - redis_password
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$(cat /run/secrets/redis_password)\" ping | grep -qx PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - data
+
+  sailadmin:
+    image: sailadmin:prod
+    restart: unless-stopped
+    user: "10001:10001"
+    environment:
+      TZ: Asia/Shanghai
+      SAIL_SCHEME: ${SAIL_SCHEME:?请在 /app/projects/.env 填写 SAIL_SCHEME}
+      SAIL_PUBLIC_HOST: ${SAIL_PUBLIC_HOST:?请在 /app/projects/.env 填写 SAIL_PUBLIC_HOST}
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/etc/sailadmin/
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai -XX:MaxRAMPercentage=75
+    secrets:
+      - source: mysql_app_password
+        target: spring.datasource.password
+      - source: redis_password
+        target: spring.data.redis.password
+      - source: sail_master_key
+        target: sail.security.master-key
+      - source: sail_admin_password
+        target: sail.bootstrap.password
+    volumes:
+      - /app/projects/sailadmin/application-prod.yaml:/etc/sailadmin/application-prod.yaml:ro
+      - /app/volumes/sailadmin/storage:/data/storage
+      - /app/logs/sailadmin:/var/log/sailadmin
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    environment:
+      SAIL_PUBLIC_HOST: ${SAIL_PUBLIC_HOST:?请在 /app/projects/.env 填写 SAIL_PUBLIC_HOST}
+      NGINX_ENVSUBST_FILTER: SAIL_PUBLIC_HOST
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /app/projects/nginx/templates/${SAIL_SCHEME:?请填写 SAIL_SCHEME}:/etc/nginx/templates:ro
+      - /app/projects/nginx/site.conf:/etc/nginx/conf.d/site.inc:ro
+      - /app/volumes/nginx/certs:/etc/nginx/certs:ro
+      - /app/projects/sailadmin/dist:/usr/share/nginx/html:ro
+      - /app/logs/nginx:/var/log/nginx
+    depends_on:
+      - sailadmin
+    networks:
+      - edge
+
+secrets:
+  mysql_app_password:
+    file: /app/projects/mysql/secrets/app_password
+  mysql_root_password:
+    file: /app/projects/mysql/secrets/root_password
+  redis_password:
+    file: /app/projects/redis/secrets/password
+  sail_master_key:
+    file: /app/projects/sailadmin/secrets/master_key
+  sail_admin_password:
+    file: /app/projects/sailadmin/secrets/admin_password
+
+networks:
+  edge:
+    driver: bridge
+  data:
+    driver: bridge
+    internal: true
