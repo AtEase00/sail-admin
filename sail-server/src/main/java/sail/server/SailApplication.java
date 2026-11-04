@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication(scanBasePackages = "sail")
 public class SailApplication {
     public static void main(String[] args) {
-        // 装配基础设施和四个独立业务模块。
+        // 装配基础设施和业务模块与持久化任务调度。
         SpringApplication.run(SailApplication.class, args);
     }
 }

@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar } from '@/components/ui/sidebar'
-import { navigation } from '@/sail/navigation'
+import { canAccessPage, navigation } from '@/sail/navigation'
 import { resolveMenuIcon } from '@/sail/navigation-icons'
 import { useAuthStore } from '@/stores/auth'
 import { useWebsiteStore } from '@/stores/website'
@@ -20,7 +20,7 @@ const hoveredGroup = ref<string | null>(null)
 const openedByHover = ref(false)
 let closeTimer: ReturnType<typeof setTimeout> | undefined
 const groupPaths: Record<string, string> = { 工作空间: '/workspace', 系统管理: '/system', 文件管理: '/content', 消息管理: '/messages/manage', 支付管理: '/pay' }
-const items = computed(() => navigation.filter(item => (!('admin' in item) || !item.admin || auth.isAdmin) && auth.can('permission' in item ? item.permission : undefined)))
+const items = computed(() => navigation.filter(item => canAccessPage(item, auth)))
 const groups = computed(() => [...new Set(items.value.map(item => item.group))].filter(group => group !== '工作空间'))
 /** 分组名称与图标读取后端目录，路径只用于对应固定页面能力。 */
 function groupMenu(group: string) {

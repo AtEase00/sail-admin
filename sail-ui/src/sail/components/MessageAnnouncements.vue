@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage } from '@/lib/message'
 
 import MessageDetail from './MessageDetail.vue'
 
 const open = ref(false)
 const current = ref<number>()
-const error = ref('')
+const error = useMessageError()
 const shown = new Set<number>()
 const pendingReceipts = new Set<number>()
 let loading = false
@@ -28,7 +30,7 @@ async function acknowledge() {
       pendingReceipts.delete(id)
       error.value = ''
     }
-    catch (failure) { error.value = failure instanceof Error ? failure.message : '公告展示回执保存失败，将自动重试' }
+    catch (failure) { error.value = errorMessage(failure, '公告展示回执保存失败，将自动重试') }
   }
 }
 /** 每次仅展示一条，登录、重连和轮询从数据库补读，按服务端优先级依次处理。 */
@@ -83,7 +85,4 @@ onBeforeUnmount(() => {
 
 <template>
   <MessageDetail :id="current" v-model:open="open" presentation="popup" @presented="presented" />
-  <p v-if="open && error" role="alert" class="fixed bottom-5 left-1/2 z-[85] max-w-[90vw] -translate-x-1/2 rounded border bg-background p-3 text-sm text-destructive">
-    {{ error }}
-  </p>
 </template>

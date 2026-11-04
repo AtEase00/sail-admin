@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router'
 
 import pinia from '@/plugins/pinia/setup'
+import { canAccessPage } from '@/sail/navigation'
 import { useAuthStore } from '@/stores/auth'
 
 /** 登录和页面权限双重检查；未声明业务能力的页面不进入管理工作流。 */
@@ -21,7 +22,7 @@ export function setupAuthGuard(router: Router) {
       return { path: '/auth/sign-in' }
     if (!to.meta.sail)
       return { path: '/dashboard' }
-    if ((to.meta.admin && !auth.isAdmin) || !auth.can(to.meta.permission))
+    if (!canAccessPage(to.meta, auth))
       return { path: '/dashboard', query: { denied: '1' } }
     return true
   })

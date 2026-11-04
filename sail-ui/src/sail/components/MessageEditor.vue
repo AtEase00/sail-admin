@@ -8,13 +8,14 @@ import { Input as AInput, Modal } from 'ant-design-vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 
 import { Button } from '@/components/ui/button'
+import { useMessageError } from '@/composables/use-message-error'
 import { sanitizeMessageHtml } from '@/sail/message-center'
 
-const props = withDefaults(defineProps<{ modelValue: string, disabled?: boolean, placeholder?: string }>(), { placeholder: '填写消息正文，支持段落、列表与链接' })
+const props = withDefaults(defineProps<{ modelValue: string, disabled?: boolean, placeholder?: string }>(), { placeholder: '填写正文' })
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const linkOpen = ref(false)
 const link = ref('')
-const linkError = ref('')
+const linkError = useMessageError()
 // 持久化图片只保留文件编号，渲染地址为当前会话鉴权后生成的 Blob。
 const AttachmentImage = Image.extend({ parseHTML() {
   return [{ tag: 'img[data-file-id]' }]
@@ -111,9 +112,7 @@ onBeforeUnmount(() => editor.value?.destroy())
     </div>
     <EditorContent :editor="editor" class="message-body" />
     <Modal v-model:open="linkOpen" :mask-closable="false" title="设置链接" :z-index="80" ok-text="保存链接" cancel-text="取消" @ok="applyLink">
-      <label class="block space-y-2 py-3"><span>链接地址</span><AInput v-model:value="link" placeholder="https://" @press-enter="applyLink" /><span v-if="linkError" role="alert" class="text-destructive">{{ linkError }}</span></label><p class="text-xs text-muted-foreground">
-        留空保存可移除已有链接。
-      </p>
+      <label class="block space-y-2 py-3"><span>链接地址</span><AInput v-model:value="link" placeholder="https://" @press-enter="applyLink" /></label>
     </Modal>
   </div>
 </template>

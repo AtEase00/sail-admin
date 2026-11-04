@@ -18,6 +18,7 @@ export const navigation = [
     permission: 'system:config:query',
     group: '系统管理',
   },
+  { title: '定时任务', path: '/system/jobs', permissions: ['system:job:query', 'system:job:log:query'], group: '系统管理' },
   { title: '操作审计', path: '/system/audit', permission: 'system:audit:query', group: '系统管理' },
   { title: '文件管理', path: '/files', permission: 'file:query', group: '文件管理' },
   {
@@ -26,11 +27,10 @@ export const navigation = [
     permission: 'message:template:query',
     group: '消息管理',
   },
-  { title: '发布消息', path: '/messages/send', permission: 'message:send', group: '消息管理' },
   {
     title: '发布记录',
     path: '/messages/history',
-    permission: 'message:query',
+    permissions: ['message:query', 'message:send'],
     group: '消息管理',
   },
   { title: '支付订单', path: '/pay/orders', permission: 'pay:query', group: '支付管理' },
@@ -39,3 +39,8 @@ export const navigation = [
   { title: '退款记录', path: '/pay/refunds', permission: 'pay:manage', group: '支付管理' },
   { title: '业务通知', path: '/pay/notifications', permission: 'pay:manage', group: '支付管理' },
 ] as const
+
+/** 合并页面按任一入口权限开放，具体操作仍各自校验。 */
+export function canAccessPage(access: { title?: string, admin?: boolean, permission?: string, permissions?: readonly string[] }, auth: { isAdmin: boolean, can: (permission?: string) => boolean }) {
+  return (!access.admin || auth.isAdmin) && (access.permissions ? access.permissions.some(permission => auth.can(permission)) : auth.can(access.permission))
+}

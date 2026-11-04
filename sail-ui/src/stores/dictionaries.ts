@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage } from '@/lib/message'
 
 /** 字典仅负责展示元数据，真实业务状态仍由后端接口校验。 */
 export interface DictionaryOption {
@@ -14,7 +16,7 @@ export interface DictionaryOption {
 /** 从后台加载启用的类型和数据，不使用写死的展示标签冒充配置。 */
 export const useDictionaryStore = defineStore('sail-dictionaries', () => {
   const entries = ref<Record<string, DictionaryOption[]>>({})
-  const error = ref('')
+  const error = useMessageError()
   let pending: Promise<void> | null = null
   /** 合并同一时间的加载请求，读取失败时清除旧选项并保存错误。 */
   function load() {
@@ -25,7 +27,7 @@ export const useDictionaryStore = defineStore('sail-dictionaries', () => {
       error.value = ''
     }).catch((failure: unknown) => {
       entries.value = {}
-      error.value = failure instanceof Error ? failure.message : '字典加载失败'
+      error.value = errorMessage(failure, '字典加载失败')
     }).finally(() => {
       pending = null
     })

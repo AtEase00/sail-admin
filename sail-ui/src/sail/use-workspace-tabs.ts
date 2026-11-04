@@ -1,10 +1,10 @@
 import type { Component, PropType, VNode } from 'vue'
 
 import { useSessionStorage } from '@vueuse/core'
-import { computed, defineComponent, markRaw, ref, watch } from 'vue'
+import { computed, defineComponent, h, markRaw, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { navigation } from '@/sail/navigation'
+import { canAccessPage, navigation } from '@/sail/navigation'
 import { useAuthStore } from '@/stores/auth'
 
 /** 工作区标签与缓存共用页面标识，关闭标签时同步清理页面实例。 */
@@ -15,7 +15,7 @@ export function useWorkspaceTabs() {
   const paths = useSessionStorage<string[]>(`sail:workspace-tabs:${auth.identity!.user.id}`, ['/dashboard'])
   const versions = ref<Record<string, number>>({})
   const wrappers = new Map<string, Component>()
-  const allowed = computed(() => ['/dashboard', '/account', '/messages', ...navigation.filter(item => (!('admin' in item) || !item.admin || auth.isAdmin) && auth.can('permission' in item ? item.permission : undefined)).map(item => item.path)])
+  const allowed = computed(() => ['/dashboard', '/account', '/messages', ...navigation.filter(item => canAccessPage(item, auth)).map(item => item.path)])
   const tabs = computed(() => paths.value.map(path => ({ path, title: String(router.resolve(path).meta.title ?? navigation.find(item => item.path === path)?.title ?? path), pinned: path === '/dashboard' })))
 
   /** 刷新代次进入缓存名称，使刷新与关闭都能释放旧实例。 */
@@ -31,7 +31,7 @@ export function useWorkspaceTabs() {
         name,
         props: { view: { type: Object as PropType<VNode>, required: true } },
         setup(props) {
-          return () => props.view
+          return () => h('div', { class: 'sail-page-view min-w-0' }, [props.view])
         },
       })))
     }

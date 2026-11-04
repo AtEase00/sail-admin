@@ -13,7 +13,7 @@ let releaseOld: (() => void) | undefined
 const server = createServer(async (request, response) => {
   response.setHeader('Access-Control-Allow-Origin', '*')
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-  response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   response.setHeader('Content-Type', 'application/json')
   // 测试页与随机端口不同源，预检必须成功才会发出真正的认证请求。
   if (request.method === 'OPTIONS') {
@@ -27,7 +27,7 @@ const server = createServer(async (request, response) => {
       releaseOld = resolve
     })
   }
-  response.statusCode = request.url === '/forbidden' ? 403 : request.url === '/expired' || request.url === '/old' ? 401 : 200
+  response.statusCode = request.url === '/forbidden' ? 403 : request.url === '/expired' || request.url === '/old' || request.url === '/system/auth/login' ? 401 : 200
   response.end(JSON.stringify({ authorization: request.headers.authorization, message: 'HTTP transport test' }))
 })
 
@@ -68,6 +68,20 @@ describe('真实 HTTP 请求与会话隔离', () => {
       await expect(apiFetch(`${origin}/expired`)).rejects.toMatchObject({ status: 401 })
       expect(readToken()).toBe('')
       expect(events).toBe(1)
+    }
+    finally {
+      window.removeEventListener('sail:session-expired', listener)
+    }
+  })
+  it('登录失败只反馈凭据错误，不撤销原会话或重复提示登录失效', async () => {
+    writeToken('existing-session')
+    let events = 0
+    const listener = () => events++
+    window.addEventListener('sail:session-expired', listener)
+    try {
+      await expect(apiFetch(`${origin}/system/auth/login`, { method: 'POST' })).rejects.toMatchObject({ status: 401 })
+      expect(readToken()).toBe('existing-session')
+      expect(events).toBe(0)
     }
     finally {
       window.removeEventListener('sail:session-expired', listener)

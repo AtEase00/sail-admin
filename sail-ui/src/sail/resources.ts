@@ -19,7 +19,6 @@ export interface Field {
   sourceValue?: string
   dictionary?: string
   secret?: boolean
-  help?: string
   visible?: (form: Record<string, unknown>) => boolean
 }
 export interface Resource {
@@ -121,7 +120,7 @@ export const resources: Record<string, Resource> = {
     adminWrite: true,
     fields: [
       { ...name, label: '角色名称' },
-      { ...code, label: '角色编码', pattern: '[A-Z][A-Z0-9_]{1,63}', help: '2 至 64 位，以大写字母开头，可包含数字和下划线。' },
+      { ...code, label: '角色编码', pattern: '[A-Z][A-Z0-9_]{1,63}' },
       status,
       { key: 'remark', label: '备注', type: 'textarea', max: 255 },
       {
@@ -164,7 +163,7 @@ export const resources: Record<string, Resource> = {
         { value: 'BUTTON', label: '按钮' },
       ],
     },
-    { key: 'permission', label: '权限标识', max: 128, help: '按钮必填，例如 system:user:query。' },
+    { key: 'permission', label: '权限标识', max: 128 },
     { key: 'path', label: '前端路由', max: 200 },
     { key: 'icon', label: '菜单图标', type: 'icon', max: 64, visible: form => form.type !== 'BUTTON' },
     order,
@@ -264,7 +263,7 @@ export const resources: Record<string, Resource> = {
         type: 'textarea',
         required: true,
         max: 4000,
-        help: '变量写法：' + '$' + '{name}。发送时必须提供全部变量。',
+
       },
       enabled,
     ],
@@ -316,7 +315,7 @@ export const resources: Record<string, Resource> = {
         label: '区域 region',
         visible: cloud,
         max: 80,
-        help: 'MinIO 必须填写实际 region。',
+
       },
       {
         key: 'accessKey',

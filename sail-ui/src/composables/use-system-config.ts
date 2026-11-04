@@ -3,7 +3,8 @@ import type { z } from 'zod'
 
 import { useForm } from '@tanstack/vue-form'
 import { useStorage } from '@vueuse/core'
-import { toast } from 'vue-sonner'
+
+import { message } from '@/lib/message'
 
 import { resolveSystemConfigValue, useSystemConfigQuery } from './use-system-config-query'
 
@@ -40,9 +41,7 @@ export function useSystemConfig<S extends z.ZodObject<z.ZodRawShape>>({
         { ...config, value: JSON.stringify(value) },
         {
           onSuccess: () => {
-            toast('You submitted the following values:', {
-              description: h('pre', { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' }, h('code', { class: 'text-white' }, JSON.stringify(config, null, 2))),
-            })
+            message.success('配置已保存')
           },
         },
       )
@@ -70,9 +69,7 @@ export function useSystemConfig<S extends z.ZodObject<z.ZodRawShape>>({
         {
           onSuccess: () => {
             localCacheConfig.value = initialConfig
-            toast('System config created with default value.', {
-              description: h('pre', { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' }, h('code', { class: 'text-white' }, JSON.stringify({ key, description, value: initialConfig }, null, 2))),
-            })
+            message.success('配置已创建')
           },
         },
       )

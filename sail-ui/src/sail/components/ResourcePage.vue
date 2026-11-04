@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Folder, Plus } from '@lucide/vue'
 import { computed, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { QueryField } from '@/sail/list-models'
 import type { Field } from '@/sail/resources'
@@ -31,7 +30,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import ResourceActions from '@/sail/components/ResourceActions.vue'
 import SailForm from '@/sail/components/SailForm.vue'
 import { resolveMenuIcon } from '@/sail/navigation-icons'
@@ -84,11 +85,11 @@ const statusFilter = computed(() => {
 })
 const searchHint = computed(() => ({ users: '账号或显示名称', audit: '操作名称或追踪号', history: '消息标题', refunds: '退款单号或原因', notifications: '业务订单号', menus: '菜单名称、路由或权限标识', roles: '请输入角色名称或编码' }[props.resource] ?? '名称、编码等关键词'))
 const loading = ref(false)
-const error = ref('')
+const error = useMessageError()
 const editor = ref(false)
 const edited = ref<Row | null>(null)
 const saving = ref(false)
-const formError = ref('')
+const formError = useMessageError()
 const form = reactive<Record<string, unknown>>({})
 const referencesReady = ref(false)
 const options = reactive<Record<string, { value: string | number, label: string }[]>>({})
@@ -168,7 +169,7 @@ async function load() {
   catch (failure) {
     rows.value = []
     total.value = 0
-    error.value = failure instanceof Error ? failure.message : '加载失败'
+    error.value = errorMessage(failure, '加载失败')
   }
   finally {
     loading.value = false
@@ -213,7 +214,7 @@ async function open(row: Row | null) {
     referencesReady.value = true
   }
   catch (failure) {
-    formError.value = failure instanceof Error ? failure.message : '选项加载失败'
+    formError.value = errorMessage(failure, '选项加载失败')
   }
   finally {
     saving.value = false
@@ -260,7 +261,7 @@ async function save() {
       payload,
     )
     editor.value = false
-    toast.success('资料已保存')
+    feedback.success('资料已保存')
     await load()
     // 字典数据变更后刷新共享选项，让其他页面立即使用实际配置。
     if (props.resource === 'dictionaries')
@@ -269,7 +270,7 @@ async function save() {
       await auth.hydrate(true)
   }
   catch (failure) {
-    formError.value = failure instanceof Error ? failure.message : '保存失败'
+    formError.value = errorMessage(failure, '保存失败')
   }
   finally {
     saving.value = false
@@ -280,7 +281,7 @@ async function remove(row: Row) {
   saving.value = true
   try {
     await request(`${config.endpoint}/${row.id}`, 'DELETE')
-    toast.success('已删除')
+    feedback.success('已删除')
     deleting.value = null
     await load()
     // 删除字典项后清除其他表单仍在使用的旧选项。
@@ -288,7 +289,7 @@ async function remove(row: Row) {
       window.dispatchEvent(new Event('sail:dictionaries-changed'))
   }
   catch (failure) {
-    toast.error(failure instanceof Error ? failure.message : '删除失败')
+    feedback.error(failure, '删除失败')
   }
   finally {
     saving.value = false
@@ -330,14 +331,14 @@ async function toggleStatus(row: Row, enabled: boolean) {
     return
   const fields = (config.fields ?? []).filter(field => !field.createOnly)
   if (fields.some(field => field.secret || (field.required && (row[field.key] === null || row[field.key] === undefined)))) {
-    toast.error('记录缺少完整编辑资料，请通过编辑表单修改状态')
+    feedback.error('记录缺少完整编辑资料，请通过编辑表单修改状态')
     return
   }
   saving.value = true
   try {
     const payload = Object.fromEntries(fields.map(field => [field.key, field.key === 'status' ? Number(enabled) : row[field.key]]))
     await request(`${config.endpoint}/${row.id}`, 'PUT', payload)
-    toast.success(enabled ? '已启用' : '已停用')
+    feedback.success(enabled ? '已启用' : '已停用')
     await load()
     // 启停字典项同样改变可用选项，需要同步刷新共享目录。
     if (props.resource === 'dictionaries')
@@ -346,7 +347,7 @@ async function toggleStatus(row: Row, enabled: boolean) {
       await auth.hydrate(true)
   }
   catch (failure) {
-    toast.error(failure instanceof Error ? failure.message : '状态更新失败')
+    feedback.error(failure, '状态更新失败')
   }
   finally { saving.value = false }
 }
@@ -403,11 +404,6 @@ function immutableField(field: Field) {
             {{ type.label }}（{{ rows.filter(row => row.type === type.value).length }}）
           </Button>
         </div>
-        <p v-if="error" role="alert" class="mb-3 rounded border border-destructive p-3 text-sm text-destructive">
-          {{ error }} <Button variant="link" @click="load">
-            重试
-          </Button>
-        </p>
       </template>
       <div v-if="loading" class="space-y-3 p-4" aria-label="正在加载">
         <Skeleton v-for="line in 5" :key="line" class="h-10 w-full" />
@@ -462,7 +458,7 @@ function immutableField(field: Field) {
           </TableRow>
           <TableRow v-if="!tableRows.length">
             <TableCell :colspan="visibleColumns.length" class="h-40 text-muted-foreground">
-              {{ error ? '加载失败，请刷新重试' : '暂无匹配记录，请调整查询条件或新增资料' }}
+              {{ error ? '加载失败，请刷新重试' : '暂无记录' }}
             </TableCell>
           </TableRow>
         </TableBody>
@@ -496,10 +492,9 @@ function immutableField(field: Field) {
       </DialogContent>
     </Dialog>
     <Dialog v-model:open="editor">
-      <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent :aria-describedby="undefined" class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{{ edited ? '编辑' : '新增' }}{{ resource === 'roles' ? '角色' : config.title }}</DialogTitle>
-          <DialogDescription>{{ activeFields.some(field => field.secret) ? '秘密字段编辑时留空表示保留原值。' : '带 * 的为必填项。' }}</DialogDescription>
         </DialogHeader>
         <SailForm class="space-y-4" @submit.prevent="save">
           <div v-for="field in activeFields" :key="field.key" class="space-y-2">
@@ -515,6 +510,7 @@ function immutableField(field: Field) {
               :required="field.required && !(edited && field.secret)"
               :maxlength="field.max"
               :disabled="saving"
+              :placeholder="edited && field.secret ? '留空不修改' : undefined"
               :autocomplete="field.secret ? 'off' : undefined"
               @update:model-value="(value) => setField(field, value)"
             />
@@ -526,19 +522,15 @@ function immutableField(field: Field) {
               :required="field.required && !(edited && field.secret)"
               :maxlength="field.max"
               :pattern="field.pattern"
+              :placeholder="edited && field.secret ? '留空不修改' : undefined"
               :minlength="field.type === 'password' ? field.min : undefined"
               :min="field.type === 'number' ? field.min : undefined"
               :disabled="saving || Boolean(edited && field.immutable)"
               :autocomplete="field.secret || field.type === 'password' ? 'new-password' : 'off'"
               @update:model-value="(value) => setField(field, value)"
             />
-            <p v-if="field.help" class="text-xs text-muted-foreground">
-              {{ field.help }}
-            </p>
           </div>
-          <p v-if="formError" role="alert" class="break-words text-sm text-destructive">
-            {{ formError }}
-          </p>
+
           <DialogFooter>
             <Button type="button" variant="outline" :disabled="saving" @click="editor = false">
               取消

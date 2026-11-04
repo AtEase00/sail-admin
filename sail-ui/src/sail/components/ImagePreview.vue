@@ -4,6 +4,7 @@ import { FocusScope } from 'reka-ui'
 import { defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 
 import { focusDialogContent } from '@/lib/dialog-focus'
+import { message } from '@/lib/message'
 import { imagePreviewCount } from '@/sail/image-preview-state'
 
 const props = defineProps<{ src: string, alt?: string, open: boolean, loading?: boolean, error?: string }>()
@@ -35,7 +36,7 @@ onBeforeUnmount(() => register(false))
   <Teleport to="body">
     <FocusScope v-if="open" trapped loop as-child @mount-auto-focus="focusDialogContent">
       <div class="sail-image-preview" role="dialog" aria-modal="true" :aria-label="alt || '图片预览'" tabindex="-1" :style="{ '--preview-flip-x': flipX, '--preview-flip-y': flipY }" @keydown.esc.stop.prevent="emit('close')">
-        <Lightbox v-if="src && !error" :visible="open" :imgs="[{ src, alt }]" :zoom-scale="0.25" :max-zoom="10" :min-zoom="0.25" :mask-closable="false" title-disabled scroll-disabled @hide="emit('close')">
+        <Lightbox v-if="src && !error" :visible="open" :imgs="[{ src, alt }]" :zoom-scale="0.25" :max-zoom="10" :min-zoom="0.25" :mask-closable="false" title-disabled scroll-disabled @on-error="message.error('图片读取失败')" @hide="emit('close')">
           <template #close-btn="{ close }">
             <button type="button" class="sail-preview-close" aria-label="关闭图片预览" title="关闭" @click="close">
               <X />
@@ -64,15 +65,11 @@ onBeforeUnmount(() => register(false))
               </button>
             </div>
           </template>
-          <template #onerror>
-            <p role="alert" class="text-white">
-              图片读取失败，请下载原文件查看。
-            </p>
-          </template>
+          <template #onerror />
         </Lightbox>
         <div v-else class="sail-preview-status" @keydown.esc.stop.prevent="emit('close')">
-          <p :role="error ? 'alert' : 'status'">
-            {{ error || (loading ? '正在读取图片…' : '图片不可用') }}
+          <p role="status">
+            {{ loading ? '正在读取图片…' : '图片不可用' }}
           </p>
           <button type="button" class="sail-preview-close" aria-label="关闭图片预览" @click="emit('close')">
             <X />

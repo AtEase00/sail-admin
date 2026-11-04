@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { BookOpen, Pencil, Plus, Search, Trash2 } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
-import { toast } from 'vue-sonner'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -9,7 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import ResourcePage from '@/sail/components/ResourcePage.vue'
 import SailForm from '@/sail/components/SailForm.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -19,13 +20,13 @@ const auth = useAuthStore()
 const types = ref<DictionaryType[]>([])
 const selected = ref<DictionaryType | null>(null)
 const keyword = ref('')
-const error = ref('')
+const error = useMessageError()
 const loading = ref(false)
 const editor = ref(false)
 const edited = ref<DictionaryType | null>(null)
 const deleting = ref<DictionaryType | null>(null)
 const saving = ref(false)
-const formError = ref('')
+const formError = useMessageError()
 const form = reactive({ name: '', code: '', status: 1, remark: '' })
 /** 类型搜索交给后端过滤，不在客户端隐藏全部响应数据。 */
 async function load() {
@@ -36,7 +37,7 @@ async function load() {
     selected.value = types.value.find(item => item.id === selected.value?.id) ?? types.value[0] ?? null
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '类型加载失败'
+    error.value = errorMessage(failure, '类型加载失败')
     types.value = []
     selected.value = null
   }
@@ -59,9 +60,9 @@ async function save() {
     await load()
     selected.value = types.value.find(item => item.id === id) ?? null
     window.dispatchEvent(new Event('sail:dictionaries-changed'))
-    toast.success('字典类型已保存')
+    feedback.success('字典类型已保存')
   }
-  catch (failure) { formError.value = failure instanceof Error ? failure.message : '保存失败' }
+  catch (failure) { formError.value = errorMessage(failure, '保存失败') }
   finally { saving.value = false }
 }
 /** 删除前由服务端检查系统保护和字典数据引用。 */
@@ -75,9 +76,9 @@ async function remove() {
     deleting.value = null
     await load()
     window.dispatchEvent(new Event('sail:dictionaries-changed'))
-    toast.success('字典类型已删除')
+    feedback.success('字典类型已删除')
   }
-  catch (failure) { formError.value = failure instanceof Error ? failure.message : '删除失败' }
+  catch (failure) { formError.value = errorMessage(failure, '删除失败') }
   finally { saving.value = false }
 }
 onMounted(load)
@@ -96,9 +97,7 @@ onMounted(load)
           <Search class="size-4" />
         </Button>
       </form>
-      <p v-if="error" role="alert" class="px-4 pb-3 text-sm text-destructive">
-        {{ error }}
-      </p>
+
       <p v-if="loading" class="p-4 text-sm text-muted-foreground">
         正在读取类型…
       </p>
@@ -130,21 +129,17 @@ onMounted(load)
       </p>
     </div>
     <Dialog v-model:open="editor">
-      <DialogContent class="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{{ edited ? '编辑字典类型' : '新增字典类型' }}</DialogTitle><DialogDescription>类型编码供系统引用，数据项在右侧维护。</DialogDescription></DialogHeader><SailForm class="space-y-4" @submit.prevent="save">
+      <DialogContent :aria-describedby="undefined" class="sm:max-w-lg">
+        <DialogHeader><DialogTitle>{{ edited ? '编辑字典类型' : '新增字典类型' }}</DialogTitle></DialogHeader><SailForm class="space-y-4" @submit.prevent="save">
           <div class="space-y-2">
             <Label for="type-name">类型名称</Label><Input id="type-name" v-model="form.name" required :maxlength="64" :disabled="saving" />
           </div><div class="space-y-2">
-            <Label for="type-code">类型编码</Label><Input id="type-code" v-model="form.code" pattern="[a-z][a-z0-9_]{1,63}" required :disabled="saving || edited?.builtIn" placeholder="例如 business_status" /><p class="text-xs text-muted-foreground">
-              小写字母开头，支持数字与下划线。
-            </p>
+            <Label for="type-code">类型编码</Label><Input id="type-code" v-model="form.code" pattern="[a-z][a-z0-9_]{1,63}" required :disabled="saving || edited?.builtIn" placeholder="例如 business_status" />
           </div><div class="flex items-center gap-3">
             <Label for="type-status">启用类型</Label><Switch id="type-status" :model-value="form.status === 1" :disabled="saving" @update:model-value="form.status = Number($event)" />
           </div><div class="space-y-2">
             <Label for="type-remark">备注</Label><Textarea id="type-remark" v-model="form.remark" :maxlength="255" :disabled="saving" />
-          </div><p v-if="formError" role="alert" class="text-sm text-destructive">
-            {{ formError }}
-          </p><DialogFooter>
+          </div><DialogFooter>
             <Button type="button" variant="outline" :disabled="saving" @click="editor = false">
               取消
             </Button><Button type="submit" :disabled="saving">
@@ -156,9 +151,7 @@ onMounted(load)
     </Dialog>
     <Dialog :open="Boolean(deleting)" @update:open="!$event && (deleting = null)">
       <DialogContent>
-        <DialogHeader><DialogTitle>删除字典类型</DialogTitle><DialogDescription>确认删除「{{ deleting?.name }}」？有数据的类型需要先清空数据。</DialogDescription></DialogHeader><p v-if="formError" role="alert" class="text-sm text-destructive">
-          {{ formError }}
-        </p><DialogFooter>
+        <DialogHeader><DialogTitle>删除字典类型</DialogTitle><DialogDescription>确认删除「{{ deleting?.name }}」？有数据的类型需要先清空数据。</DialogDescription></DialogHeader><DialogFooter>
           <Button variant="outline" :disabled="saving" @click="deleting = null">
             取消
           </Button><Button variant="destructive" :disabled="saving" @click="remove">

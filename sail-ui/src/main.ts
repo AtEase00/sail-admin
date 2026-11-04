@@ -8,8 +8,6 @@ import '@/assets/scrollbar.css'
 import '@/assets/themes.css'
 import '@/assets/chart-theme.css'
 import '@/assets/dialog-window.css'
-import 'vue-sonner/style.css' // vue sonner style
-
 import '@/utils/env'
 
 function bootstrap() {

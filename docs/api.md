@@ -186,3 +186,60 @@ refund 首期只做整单退款，同一订单复用一个退款号；处理中�
 - `GET/PUT /api/system/configs/settings` 读取带中文编辑元数据的配置和保存键值对象。当前支持 `website.title`、`website.logo`、`login.max_attempts`、`login.lock_minutes`；写入沿用超级管理员权限。`GET /api/system/configs/website` 仅向已登录用户提供站点显示配置。
 - 字典类型：`GET/POST /api/system/dictionaries/types`、`PUT/DELETE /api/system/dictionaries/types/{id}`。数据 CRUD 沿用 `/api/system/dictionaries`，列表支持 `typeCode`；数据新增字段 `color`、`remark`、`isDefault`、`builtIn`。业务用 `GET /api/system/dictionaries/options` 获取启用类型下的启用字典。
 - 菜单新增可写 `icon` 字段，使用受支持的 Lucide 名称。文件存储业务接口仍为 `/api/file/storages`，前端入口合并至系统配置。
+
+
+## 个人中心补充（2026-11-03）
+
+登录用户均可调用，不要求用户管理权限。账号 ID 只从当前会话获取。
+
+- `GET /api/system/auth/profile`：返回 `user`（与 `/auth/me` 相同的安全用户资料）、`department`（名称或 null）、`posts`（有效岗位名称数组）、`createdAt`。
+- `PUT /api/system/auth/profile`：请求 `{ "nickname": "新昵称" }`，昵称必填且最长 64 字符，保存时移除两端空白；返回更新后的安全用户资料。不会更新客户端额外传入的 ID、部门、账号状态、角色或密码。操作进入审计。
+- `PUT /api/system/auth/password`：沿用原密码校验与全部会话撤销行为。
+- WebSocket `/ws/messages` 新增应用层心跳：客户端每 25 秒发 `{"type":"PING"}`，服务端回复 `{"type":"PONG"}`。使用已有一次性票据认证；10 秒无应答客户端重连。
+
+## 定时任务与执行记录（2026-11-03）
+
+统一前缀 `/api/system/jobs`，均须登录。权限完整前缀为 `system:job:`。
+
+| 方法与路径 | 权限后缀 | 用途 |
+| --- | --- | --- |
+| `GET /` | `query` | 任务分页，支持 keyword/status/page/size/id |
+| `GET /handlers` | `query` | 已注册处理器 code/name/description/retryable |
+| `POST /preview` | `query` | 校验完整配置，返回未来最多 5 次时间（epoch 毫秒） |
+| `POST /` | `create` | 新建暂停任务，返回任务 ID |
+| `PUT /{id}` | `update` | 按版本更新配置，返回任务 ID |
+| `PUT /{id}/status` | `control` | 启用、暂停、归档 |
+| `POST /{id}/run` | `run` | 立即执行，返回持久化执行 ID |
+| `GET /executions` | `log:query` | 执行分页，支持 jobId/keyword/status/source/createdFrom/createdTo/page/size |
+| `GET /executions/{id}` | `log:query` | 运行详情及配置快照 |
+| `POST /executions/{id}/retry` | `run` + `log:query` | 人工重试已结束 FAILED/PARTIAL，返回新执行 ID |
+| `POST /executions/{id}/resolve` | `control` + `log:query` | 确认 UNKNOWN 的原进程已停止并解除阻塞 |
+
+新增、更新、预览使用同一配置结构：
+
+```json
+{
+  "name": "调度连通性检查",
+  "groupName": "运维",
+  "handler": "system.diagnostic",
+  "parameters": "{}",
+  "scheduleType": "CRON",
+  "cron": "0 0/5 * * * ?",
+  "intervalSeconds": null,
+  "zoneId": "Asia/Shanghai",
+  "misfirePolicy": "SKIP",
+  "timeoutSeconds": 60,
+  "maxRetries": 0,
+  "retryDelaySeconds": 30,
+  "retentionDays": 30,
+  "version": 0
+}
+```
+
+更新必须传当前 version（新建传 0），服务端成功后递增。`INTERVAL` 需传 intervalSeconds（10–2592000），为固定频率；Cron 为 Quartz 6/7 字段。参数是 JSON **字符串**，由注册处理器进一步校验，不能包含秘密。超时 5–86400 秒、重试 0–3 次、首次退避 10–3600 秒、记录保留 1–365 天。重试仅允许明确支持幂等重试的处理器。
+
+状态变更体为 `{"version":1,"status":"ENABLED"}`，status 只接受 ENABLED/PAUSED/ARCHIVED。执行和人工重试体为 `{"version":2}`（当前任务配置版本）；任务必须启用、已同步且无未结束执行。版本冲突或任务占用返回 HTTP 409；配置或其他状态校验失败 400、无权限 403。
+
+人工处置体为 `{"reason":"原执行进程已停止，已核对业务结果……"}`，reason 必填且最多 500 字符。只能处置仍占用任务的 UNKNOWN；原记录保留 UNKNOWN，另存处置说明和处置完成时间，操作者记录在操作审计中，不伪造成功。
+
+任务时间字段及执行 scheduledAt/startedAt/finishedAt/heartbeatAt/createdAt 为 epoch 毫秒；未发生为 null，durationMs 为毫秒。任务返回 syncStatus/syncError，执行返回 configSnapshot（JSON 字符串）、actorName、instanceId、traceId、succeeded/failed、summary 和 parentRunId。执行来源 SCHEDULED/MANUAL/RETRY；状态与故障语义见 [运行说明](job-scheduler.md)。

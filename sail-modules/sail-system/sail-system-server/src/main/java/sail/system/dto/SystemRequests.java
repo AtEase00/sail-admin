@@ -31,6 +31,9 @@ public final class SystemRequests {
             @Positive Long deptId,
             @NotNull @Min(0) @Max(1) Integer status) {}
 
+    /** 个人资料仅开放昵称，身份与组织授权不接受客户端更新。 */
+    public record Profile(@NotBlank @Size(max = 64) String nickname) {}
+
     /** 修改自身密码时校验原密码。 */
     public record Password(
             @NotBlank String oldPassword,

@@ -1,0 +1,9 @@
+{
+  "passed": [
+    "two separate JVMs joined the same MySQL Quartz cluster",
+    "concurrent manual requests across nodes accepted once and logged once",
+    "periodic task longer than its interval never overlaps across nodes",
+    "JDBC restart retains paused state; misfire SKIP skips and FIRE_ONCE executes once",
+    "killed worker becomes UNKNOWN and blocks reruns until explicit resolution; survivor executes safely"
+  ]
+}

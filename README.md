@@ -13,14 +13,15 @@ Sail Admin 是面向企业后台管理员和业务操作人员的管理系统基
 | 模块 | 已实现的主要能力 |
 | --- | --- |
 | 系统管理 | 登录与锁定、会话下线、用户/角色/菜单按钮授权、部门和岗位、五类数据范围、字典、系统参数、登录与操作审计 |
+| 定时任务 | Quartz JDBC 持久化、Cron/固定频率、启停/立即执行/归档、执行历史、有限重试、协作超时与失联处置；默认无启用任务 |
 | 消息中心 | 模板和草稿、富文本及私有附件、按组织选择与排除收件人、预览人数、定时发布、分批投递、公告弹窗、回执与导出、阅读确认、归档、撤回和重试；WebSocket 提醒与数据库收件箱配合 |
 | 文件管理 | 上传、鉴权预览和下载、归属校验、显式公开读取；本地磁盘、MinIO、阿里云 OSS 可配置多套实例，并选择新文件的默认存储 |
 | 扫码支付 | 微信 Native、支付宝当面付、业务单号幂等、查单、关单、整单退款、回调验签、定时补偿和持久化业务通知 |
-| 管理前端 | 工作台、权限导航、系统管理、消息、文件及支付页面；中英文界面、响应式布局、主题设置和可拖动/全屏的弹窗 |
+| 管理前端 | 工作台、个人中心（资料、昵称修改、密码）、权限导航、系统管理、消息、文件及支付页面；中英文界面、响应式布局、主题设置和可拖动/全屏的弹窗 |
 
 典型使用顺序是：初始化管理员 → 建立部门、岗位和用户 → 配置角色的菜单权限与数据范围 → 由业务人员上传文件或发布消息 → 在工作台、消息回执和操作审计中查看结果。支付应用和渠道可随后接入具体业务订单；没有真实商户资料时，支付页面可管理配置和查看记录，但不能完成真实交易联调。
 
-支付金额以人民币分为单位。业务模块应按自己的订单计算金额，并通过 `PaymentEventHandler` 幂等消费支付通知；未接入处理器时通知保留等待状态。当前不包含钱包、分账或部分退款。通用任务管理平台、多租户、邮件短信及 MFA 不在当前实现范围内。`sail-gateway` 只保留模块位置，首期无需独立启动。
+支付金额以人民币分为单位。业务模块应按自己的订单计算金额，并通过 `PaymentEventHandler` 幂等消费支付通知；未接入处理器时通知保留等待状态。当前不包含钱包、分账或部分退款。通用任务管理与执行记录现采用 Quartz JDBC；跨应用调度平台、多租户、邮件短信及 MFA 不在当前实现范围内。`sail-gateway` 只保留模块位置，首期无需独立启动。
 
 ## 界面展示
 
@@ -55,7 +56,7 @@ sail-admin/
 ├── sail-dependencies/        # 第三方及内部模块版本管理
 ├── sail-common/              # core、web、test 公共能力
 ├── sail-framework/           # web、security、mybatis、redis、log、oss
-├── sail-modules/             # system、message、file、pay；各含 api/server
+├── sail-modules/             # system、message、file、pay、job；各含 api/server
 ├── sail-server/              # 单体启动入口、环境配置、基础 SQL
 ├── sail-gateway/             # 预留模块，不作为当前部署入口
 ├── sail-ui/                  # Vue 管理前端
@@ -65,14 +66,14 @@ sail-admin/
 └── mvnw.ps1                  # 固定 Maven 3.9.11 的 PowerShell 入口
 ```
 
-后端入口是 `sail.server.SailApplication`，可执行产物为 `sail-server/target/sail-server-1.0.0.jar`。`sail-server` 装配四个业务模块的 Server 实现；各 API 模块承载跨模块 Java 契约，Controller、实体和 Mapper 留在所属模块内。数据库保存业务事实，Redis 保存会话、临时票据及实时变化信号；消息收件箱与支付通知持久化，用于断线补读或失败重试。服务端控制权限和数据范围，前端隐藏无权限入口只是交互层处理。
+后端入口是 `sail.server.SailApplication`，可执行产物为 `sail-server/target/sail-server-1.0.0.jar`。`sail-server` 装配五个业务模块的 Server 实现；各 API 模块承载跨模块 Java 契约，Controller、实体和 Mapper 留在所属模块内。数据库保存业务事实，Redis 保存会话、临时票据及实时变化信号；消息收件箱与支付通知持久化，用于断线补读或失败重试。服务端控制权限和数据范围，前端隐藏无权限入口只是交互层处理。
 
 ## 本地启动
 
 以下步骤在工程根目录执行，使用 PowerShell 7。MySQL、Redis 的安装和启动由操作者完成；应用不会自动创建数据库或导入 SQL。
 
 1. 准备 JDK 21、PowerShell 7、MySQL 和 Redis。配置 `JAVA_HOME` 指向 JDK 21，并准备空的 `sail_admin` 数据库。目标中间件版本为 MySQL 8.4 / Redis 7；如使用其他版本，需单独验证兼容性。
-2. **仅对全新空库**人工导入 [`base.sql`](sail-server/src/main/resources/db/base.sql)。当前脚本包含 28 张表、基础角色、权限、配置和默认本地存储。`spring.sql.init.mode=never`，应用启动不执行建表或迁移。已有库按[数据库升级](#数据库升级)处理，不重复导入基础脚本。
+2. **仅对全新空库**人工导入 [`base.sql`](sail-server/src/main/resources/db/base.sql)。当前脚本包含 41 张表、基础角色、权限、配置和默认本地存储。`spring.sql.init.mode=never`，应用启动不执行建表或迁移。已有库按[数据库升级](#数据库升级)处理，不重复导入基础脚本。
 3. 检查 [`application-local.yaml`](sail-server/src/main/resources/application-local.yaml) 的 MySQL、Redis、初始管理员、AES 主密钥和本地存储目录，使其与自己的开发环境一致。开发配置直接读取 YAML，不依赖 `.env` 或 `SAIL_*` 变量。初始管理员配置仅在账号不存在时生效，不会覆盖已有密码。
 4. 构建并启动后端：
 
@@ -110,7 +111,7 @@ corepack pnpm dev --host localhost
 
 本地文件默认写入 `./storage/<存储配置编号>/`。每种存储类型可配置多套实例，但新上传只使用一个选中的默认实例；切换默认值不移动历史文件，历史文件仍按原配置读取。普通文件默认私有，只有显式标记公开的对象可匿名读取；上传单文件上限为 20 MiB。文件归属和消息附件访问在后端校验。
 
-所有表的逻辑删除约定是 `deleted=0` 表示有效，删除时写入该行 `id`。数据库是业务事实来源；Redis 用于会话、临时票据和通知等。系统配置中的站点信息和登录策略与支付、存储秘密分开管理。
+采用逻辑删除的业务表约定是 `deleted=0` 表示有效，删除时写入该行 `id`。数据库是业务事实来源；Redis 用于会话、临时票据和通知等。系统配置中的站点信息和登录策略与支付、存储秘密分开管理。
 
 ## 数据库升级
 
@@ -118,12 +119,20 @@ corepack pnpm dev --host localhost
 
 | 脚本 | 适用的已有库场景 |
 | --- | --- |
+| [`20261103-job-scheduler.sql`](scripts/migrations/20261103-job-scheduler.sql) | 尚未创建通用任务与 Quartz 表的已有库；先备份，仅执行一次 |
+| [`20261104-merge-workflow-pages.sql`](scripts/migrations/20261104-merge-workflow-pages.sql) | 已完成消息中心与定时任务迁移的旧库；将发布消息、执行记录收进对应工作流，保留原权限和角色授权 |
 | [`20261101-role-remark.sql`](scripts/migrations/20261101-role-remark.sql) | `sys_role` 缺少 `remark` 字段 |
 | [`20261101-admin-management.sql`](scripts/migrations/20261101-admin-management.sql) | 旧版缺少字典类型、审计扩展或菜单图标等管理结构 |
 | [`20261101-message-center.sql`](scripts/migrations/20261101-message-center.sql) | 尚未创建消息发布任务、接收快照等消息中心结构 |
 | [`20261101-message-preview.sql`](scripts/migrations/20261101-message-preview.sql) | **已经完成**消息中心升级，但尚无主动弹窗公告字段 |
 
 旧版若仍在 `sys_user` 保存密码材料，还需先完成凭据分表迁移；当前仓库未提供该迁移脚本，不能仅靠上述文件完成这类旧库升级。以上脚本也不是可对任意旧库依次无条件执行的升级器。迁移前须备份数据库、存储目录和 AES 主密钥；升级失败后核对表结构及数据，再决定恢复或补齐步骤。
+
+## 本次优化与实施说明
+
+- [消息连接原因分析与生产排查](docs/message-connection-diagnosis-20261103.md)：区分实时连接与 HTTP 补读故障，心跳与状态恢复修复需前后端配套升级。
+- [定时任务与执行记录选型评审](docs/scheduler-selection-review-20261103.md)：已批准并实现首期通用能力，详见[任务管理与运维说明](docs/job-scheduler.md)与[交付验收](docs/job-scheduler-acceptance-20261103.md)。
+- 右上角个人菜单进入“个人中心”，可查看组织与账号资料、修改昵称及密码；主区域切换增加过渡并保留标签缓存，系统减少动态效果设置下禁用过渡。
 
 ## 开发与验证
 

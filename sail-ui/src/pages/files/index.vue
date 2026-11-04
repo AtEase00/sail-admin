@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Upload } from '@lucide/vue'
 import { onDeactivated, onMounted, ref } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { PreviewFile } from '@/sail/file-preview'
 import type { PageResult, Row } from '@/services/types/sail'
@@ -17,7 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useMessageError } from '@/composables/use-message-error'
 import { downloadFile, request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import AdvancedTable from '@/sail/components/AdvancedTable.vue'
 import FileAttachment from '@/sail/components/FileAttachment.vue'
 import FilePreview from '@/sail/components/FilePreview.vue'
@@ -58,7 +59,7 @@ async function resetSearch() {
 
 const total = ref(0)
 const busy = ref(false)
-const error = ref('')
+const error = useMessageError()
 const publicRead = ref(false)
 const selectedFiles = ref<File[]>([])
 const preview = ref<PreviewFile>()
@@ -80,7 +81,7 @@ async function load() {
     total.value = result.total
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '加载失败'
+    error.value = errorMessage(failure, '加载失败')
     rows.value = []
     total.value = 0
   }
@@ -111,12 +112,12 @@ async function upload() {
       if (failure?.status === 'rejected')
         throw failure.reason
     }
-    toast.success('文件已上传')
+    feedback.success('文件已上传')
     uploading.value = false
     await load()
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '上传失败'
+    error.value = errorMessage(failure, '上传失败')
   }
   finally {
     busy.value = false
@@ -130,7 +131,7 @@ async function download(row: Row) {
     await downloadFile(row.id, String(row.originalName))
   }
   catch (failure) {
-    toast.error(failure instanceof Error ? failure.message : '下载失败')
+    feedback.error(failure, '下载失败')
   }
   finally {
     busy.value = false
@@ -141,12 +142,12 @@ async function remove(row: Row) {
   busy.value = true
   try {
     await request(`/file/objects/${row.id}`, 'DELETE')
-    toast.success('文件已删除')
+    feedback.success('文件已删除')
     deleting.value = null
     await load()
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '删除失败'
+    error.value = errorMessage(failure, '删除失败')
   }
   finally {
     busy.value = false
@@ -177,9 +178,6 @@ onMounted(load)
         </Button>
       </template>
       <template #before>
-        <p v-if="error" role="alert" class="text-sm text-destructive break-words">
-          {{ error }}
-        </p>
         <p v-if="busy" role="status" class="text-sm text-muted-foreground">
           正在处理文件…
         </p>
@@ -243,8 +241,8 @@ onMounted(load)
       </template>
     </AdvancedTable>
     <Dialog v-model:open="uploading">
-      <DialogContent>
-        <DialogHeader><DialogTitle>上传文件</DialogTitle><DialogDescription>单文件不超过 20 MiB，使用当前默认存储。</DialogDescription></DialogHeader>
+      <DialogContent :aria-describedby="undefined">
+        <DialogHeader><DialogTitle>上传文件</DialogTitle></DialogHeader>
         <SailForm
           v-if="auth.can('file:upload')"
           class="space-y-5"
@@ -259,9 +257,6 @@ onMounted(load)
             {{ busy ? progress || '正在上传…' : `上传文件${selectedFiles.length ? `（${selectedFiles.length}）` : ''}` }}
           </Button>
         </SailForm>
-        <p v-if="error" role="alert" class="text-sm text-destructive">
-          {{ error }}
-        </p>
       </DialogContent>
     </Dialog>
     <Dialog :open="Boolean(deleting)" @update:open="!$event && (deleting = null)">

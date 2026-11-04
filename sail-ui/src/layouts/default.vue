@@ -11,7 +11,7 @@ import MessageBell from '@/sail/components/MessageBell.vue'
 import ThemeSettings from '@/sail/components/ThemeSettings.vue'
 import UserMenu from '@/sail/components/UserMenu.vue'
 import WorkspaceTabs from '@/sail/components/WorkspaceTabs.vue'
-import { navigation } from '@/sail/navigation'
+import { canAccessPage, navigation } from '@/sail/navigation'
 import { useMessageFeed } from '@/sail/use-message-feed'
 import { useWorkspaceTabs } from '@/sail/use-workspace-tabs'
 import { useAuthStore } from '@/stores/auth'
@@ -45,7 +45,7 @@ watch([() => website.title, () => route.meta.title], () => {
 const workspace = useWorkspaceTabs()
 const { unread, connection } = useMessageFeed()
 const fullscreen = ref(false)
-const items = computed(() => navigation.filter(item => (!('admin' in item) || !item.admin || auth.isAdmin) && auth.can('permission' in item ? item.permission : undefined)))
+const items = computed(() => navigation.filter(item => canAccessPage(item, auth)))
 const currentGroup = computed(() => items.value.find(item => item.path === route.path)?.group ?? '个人中心')
 /** 工作区使用系统内专注布局，不申请浏览器全屏权限。 */
 function toggleFullscreen() {
@@ -92,9 +92,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', exitFocus))
       </div>
       <main class="min-w-0 flex-1 p-3 md:p-5">
         <RouterView v-slot="{ Component, route: pageRoute }">
-          <KeepAlive :include="workspace.cacheNames.value">
-            <component :is="workspace.cachedView(pageRoute.path)" v-if="Component" :key="workspace.cacheName(pageRoute.path)" :view="Component" />
-          </KeepAlive>
+          <Transition name="sail-page" mode="out-in">
+            <KeepAlive :include="workspace.cacheNames.value">
+              <component :is="workspace.cachedView(pageRoute.path)" v-if="Component" :key="workspace.cacheName(pageRoute.path)" :view="Component" />
+            </KeepAlive>
+          </Transition>
         </RouterView>
       </main>
     </SidebarInset>
@@ -109,7 +111,30 @@ onBeforeUnmount(() => document.removeEventListener('keydown', exitFocus))
   width: 100%;
 }
 
+.sail-page-enter-active {
+  transition:
+    opacity 180ms ease-out,
+    transform 180ms ease-out;
+}
+.sail-page-leave-active {
+  transition:
+    opacity 100ms ease-in,
+    transform 100ms ease-in;
+}
+.sail-page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.sail-page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .sail-page-enter-active,
+  .sail-page-leave-active {
+    transition: none;
+  }
   .sail-shell [data-slot='sidebar'] *,
   .sail-shell [data-slot='sidebar'] {
     transition-duration: 0s;

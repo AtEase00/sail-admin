@@ -53,6 +53,17 @@ public class AuthController {
                         rbac.permissions(id)));
     }
 
+    @GetMapping("/profile")
+    public ApiResult<?> profile() {
+        return ApiResult.ok(users.profile());
+    }
+
+    @PutMapping("/profile")
+    @OperationLog(value = "修改个人资料", type = sail.common.core.OperationType.UPDATE)
+    public ApiResult<?> updateProfile(@Valid @RequestBody SystemRequests.Profile v) {
+        return ApiResult.ok(users.updateProfile(v));
+    }
+
     @GetMapping("/menus")
     public ApiResult<?> menus() {
         /* 菜单展示与后端授权使用同一有效权限。 */

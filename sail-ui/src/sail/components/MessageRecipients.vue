@@ -7,7 +7,9 @@ import type { AudienceOptions, MessageAudience, MessagePerson } from '@/sail/mes
 import type { PageResult } from '@/services/types/sail'
 
 import { Button } from '@/components/ui/button'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage } from '@/lib/message'
 import { cloneAudience } from '@/sail/message-center'
 import { useAuthStore } from '@/stores/auth'
 
@@ -26,7 +28,7 @@ const keyword = ref('')
 const applied = ref('')
 const dept = ref<number>()
 const loading = ref(false)
-const error = ref('')
+const error = useMessageError()
 const rows = ref<MessagePerson[]>([])
 const options = ref<AudienceOptions>({ departments: [], roles: [], posts: [] })
 const people = reactive(new Map<number, MessagePerson>())
@@ -75,7 +77,7 @@ async function begin() {
     await load()
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '接收范围加载失败'
+    error.value = errorMessage(failure, '接收范围加载失败')
   }
 }
 /** 查询在后端分页过滤，异步响应只保留最近一次。 */
@@ -92,7 +94,7 @@ async function load() {
   }
   catch (failure) {
     if (current === revision)
-      error.value = failure instanceof Error ? failure.message : '人员加载失败'
+      error.value = errorMessage(failure, '人员加载失败')
   }
   finally {
     if (current === revision)
@@ -193,12 +195,8 @@ watch(dept, search)
           </div><p v-if="!local[target].length" class="py-8 text-center text-xs text-muted-foreground">
             从左侧选择人员
           </p>
-        </div><p class="mt-5 text-xs leading-6 text-muted-foreground">
-          用户、部门、角色、岗位按并集合并，排除用户最后生效。发布前将核验实际接收人数。
-        </p>
+        </div>
       </aside>
-    </div><p v-if="error" role="alert" class="text-sm text-destructive">
-      {{ error }}
-    </p>
+    </div>
   </Modal>
 </template>

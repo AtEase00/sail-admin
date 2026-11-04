@@ -18,6 +18,12 @@ export interface UserInfo {
   deptId: number | null
   status: number
 }
+export interface ProfileInfo {
+  user: UserInfo
+  department: string | null
+  posts: string[]
+  createdAt: string | null
+}
 export interface MenuInfo {
   id: number
   parentId: number | null

@@ -83,6 +83,17 @@ public class MessageSocket extends TextWebSocketHandler {
         raw.sendMessage(new TextMessage("{\"type\":\"CONNECTED\"}"));
     }
 
+    /** 应用层心跳让代理持续收到上游数据；浏览器也能识别半开连接。 */
+    @Override
+    protected void handleTextMessage(WebSocketSession raw, TextMessage message) throws IOException {
+        if (!"{\"type\":\"PING\"}".equals(message.getPayload())) return;
+        Long userId = (Long) raw.getAttributes().get("userId");
+        Map<String, WebSocketSession> active = sessions.get(userId);
+        WebSocketSession session = active == null ? null : active.get(raw.getId());
+        if (session != null && session.isOpen())
+            session.sendMessage(new TextMessage("{\"type\":\"PONG\"}"));
+    }
+
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         // 连接结束必须清理内存引用。

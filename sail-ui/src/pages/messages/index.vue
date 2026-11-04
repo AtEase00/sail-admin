@@ -8,7 +8,9 @@ import type { PageResult } from '@/services/types/sail'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage } from '@/lib/message'
 import AdvancedTable from '@/sail/components/AdvancedTable.vue'
 import ListPagination from '@/sail/components/ListPagination.vue'
 import MessageDetail from '@/sail/components/MessageDetail.vue'
@@ -34,7 +36,7 @@ const size = ref(20)
 const selected = ref<number[]>([])
 const busy = ref(false)
 const writing = ref(false)
-const error = ref('')
+const error = useMessageError()
 const showQuery = ref(true)
 const detailOpen = ref(false)
 const detailId = ref<number>()
@@ -60,7 +62,7 @@ async function load() {
   }
   catch (failure) {
     if (current === revision)
-      error.value = failure instanceof Error ? failure.message : '收件箱加载失败'
+      error.value = errorMessage(failure, '收件箱加载失败')
   }
   finally {
     if (current === revision)
@@ -103,7 +105,7 @@ async function change(action: 'read' | 'read-all' | 'archive') {
     await load()
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '消息操作失败'
+    error.value = errorMessage(failure, '消息操作失败')
   }
   finally {
     writing.value = false
@@ -162,11 +164,7 @@ onBeforeUnmount(() => {
             全部已读
           </Button><span v-if="selected.length" class="text-xs text-muted-foreground">已选 {{ selected.length }} 条</span>
         </template>
-        <template #before>
-          <p v-if="error" role="alert" class="mb-3 text-sm text-destructive">
-            {{ error }}
-          </p>
-        </template>
+
         <div class="divide-y">
           <article v-for="message in rows" :key="message.id" class="group flex items-start gap-3 px-3 py-4 hover:bg-muted/20 sm:px-4" data-message-row>
             <Checkbox class="mt-2" :model-value="selected.includes(message.id)" :aria-label="`选择消息${message.title}`" :disabled="writing" @update:model-value="select(message.id, $event === true)" /><span class="relative mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg" :class="message.readFlag ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'"><Mail class="size-5" /><span v-if="!message.readFlag && !messageUnavailable(message)" class="absolute top-0 right-0 size-2 rounded-full bg-primary ring-2 ring-background" /></span><button class="min-w-0 flex-1 text-left outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring" @click="openMessage(message.id)">

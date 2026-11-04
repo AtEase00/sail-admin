@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { MoreHorizontal } from '@lucide/vue'
 import { computed, onDeactivated, ref } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { Row } from '@/services/types/sail'
 
@@ -18,7 +17,9 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import SailForm from '@/sail/components/SailForm.vue'
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/sail/password-policy'
 import { useAuthStore } from '@/stores/auth'
@@ -35,7 +36,7 @@ const choiceSearch = ref('')
 const filteredChoices = computed(() => choices.value.filter(choice => `${choice.name} ${choice.code ?? ''}`.toLowerCase().includes(choiceSearch.value.trim().toLowerCase())))
 const selected = ref<number[]>([])
 const password = ref('')
-const error = ref('')
+const error = useMessageError()
 const busy = ref(false)
 const sessionRows = ref<Record<string, unknown>[]>([])
 const endpoint = computed(() => `/system/${props.resource}/${props.row.id}`)
@@ -68,7 +69,7 @@ async function edit(kind: string, label: string) {
     loaded.value = true
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '加载失败'
+    error.value = errorMessage(failure, '加载失败')
   }
   finally {
     busy.value = false
@@ -94,12 +95,12 @@ async function save() {
       action.value === 'password' ? { password: password.value } : { ids: selected.value },
     )
     open.value = false
-    toast.success('操作已保存')
+    feedback.success('操作已保存')
     emit('changed')
     await auth.hydrate(true)
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '操作失败'
+    error.value = errorMessage(failure, '操作失败')
   }
   finally {
     busy.value = false
@@ -110,11 +111,11 @@ async function selectStorage() {
   busy.value = true
   try {
     await request(`/file/storages/${props.row.id}/default`, 'PUT')
-    toast.success('默认存储已切换')
+    feedback.success('默认存储已切换')
     emit('changed')
   }
   catch (failure) {
-    toast.error(failure instanceof Error ? failure.message : '切换失败')
+    feedback.error(failure, '切换失败')
   }
   finally {
     busy.value = false
@@ -126,11 +127,11 @@ async function kickout() {
   try {
     await request(`/system/audit/sessions/${props.row.id}`, 'DELETE')
     sessionRows.value = []
-    toast.success('账号已下线')
+    feedback.success('账号已下线')
     kickConfirm.value = false
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '下线失败'
+    error.value = errorMessage(failure, '下线失败')
   }
   finally {
     busy.value = false
@@ -204,9 +205,7 @@ onDeactivated(() => {
         <p v-if="busy" role="status">
           正在处理…
         </p>
-        <p v-if="error" role="alert" class="break-words text-sm text-destructive">
-          {{ error }}
-        </p>
+
         <div v-if="action === 'password'" class="space-y-2">
           <Label for="reset-password">新密码（至少 {{ PASSWORD_MIN_LENGTH }} 个字符）</Label>
           <Input

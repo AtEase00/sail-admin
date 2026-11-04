@@ -8,7 +8,9 @@ import type { PageResult } from '@/services/types/sail'
 
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage } from '@/lib/message'
 
 const props = defineProps<{ unread: number }>()
 const router = useRouter()
@@ -16,7 +18,7 @@ const open = ref(false)
 const enabled = ref(false)
 const rows = ref<InboxMessage[]>([])
 const busy = ref(false)
-const error = ref('')
+const error = useMessageError()
 /** 读取后台开关，不自行推测缺失配置。 */
 async function settings() {
   try {
@@ -34,7 +36,7 @@ async function load() {
     rows.value = (await request<PageResult<InboxMessage>>('/messages/mine', 'GET', undefined, { folder: 'unread', page: 1, size: 5 })).records
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '消息加载失败'
+    error.value = errorMessage(failure, '消息加载失败')
   }
   finally {
     busy.value = false
@@ -53,7 +55,7 @@ async function readAll() {
     await load()
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '标记失败'
+    error.value = errorMessage(failure, '标记失败')
   }
 }
 watch(open, (value) => {
@@ -84,9 +86,7 @@ onBeforeUnmount(() => window.removeEventListener('sail:message-settings-changed'
         </h2><Button variant="ghost" size="sm" :disabled="busy || !unread" @click="readAll">
           <CheckCheck class="size-3.5" />全部已读
         </Button>
-      </div><p v-if="error" role="alert" class="p-4 text-xs text-destructive">
-        {{ error }}
-      </p><div class="max-h-96 divide-y overflow-y-auto">
+      </div><div class="max-h-96 divide-y overflow-y-auto">
         <button v-for="message in rows" :key="message.id" class="block w-full px-4 py-3 text-left hover:bg-muted/40" @click="visit(message.id)">
           <p class="truncate text-sm font-medium">
             {{ message.title }}

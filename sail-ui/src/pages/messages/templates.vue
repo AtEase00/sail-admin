@@ -2,13 +2,14 @@
 import { Plus } from '@lucide/vue'
 import { Input as AInput, Switch as ASwitch, Modal } from 'ant-design-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { MessageTemplate } from '@/sail/message-center'
 import type { PageResult } from '@/services/types/sail'
 
 import { Button } from '@/components/ui/button'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import AdvancedTable from '@/sail/components/AdvancedTable.vue'
 import ListPagination from '@/sail/components/ListPagination.vue'
 import MessageContentView from '@/sail/components/MessageContentView.vue'
@@ -33,8 +34,8 @@ const createdTo = ref('')
 const applied = ref<Record<string, string>>({})
 const busy = ref(false)
 const saving = ref(false)
-const error = ref('')
-const formError = ref('')
+const error = useMessageError()
+const formError = useMessageError()
 const editOpen = ref(false)
 const editing = ref<number>()
 const form = reactive({ code: '', name: '', title: '', content: '', enabled: true })
@@ -59,7 +60,7 @@ async function load() {
   }
   catch (failure) {
     if (current === revision)
-      error.value = failure instanceof Error ? failure.message : '模板读取失败'
+      error.value = errorMessage(failure, '模板读取失败')
   }
   finally {
     if (current === revision)
@@ -100,11 +101,11 @@ async function save() {
   try {
     await request(editing.value ? `/messages/templates/${editing.value}` : '/messages/templates', editing.value ? 'PUT' : 'POST', { ...form })
     editOpen.value = false
-    toast.success('模板已保存')
+    feedback.success('模板已保存')
     await load()
   }
   catch (failure) {
-    formError.value = failure instanceof Error ? failure.message : '模板保存失败'
+    formError.value = errorMessage(failure, '模板保存失败')
   }
   finally {
     saving.value = false
@@ -116,10 +117,10 @@ function remove(row: MessageTemplate) {
     try {
       await request(`/messages/templates/${row.id}`, 'DELETE')
       await load()
-      toast.success('模板已删除')
+      feedback.success('模板已删除')
     }
     catch (failure) {
-      error.value = failure instanceof Error ? failure.message : '删除失败'
+      error.value = errorMessage(failure, '删除失败')
       throw failure
     }
   } })
@@ -146,7 +147,7 @@ async function render() {
     rendered.value = await request(`/messages/templates/${previewTemplate.value.id}/preview`, 'POST', { variables: Object.fromEntries(previewVariables.value.map(key => [key, values[key] ?? ''])) })
   }
   catch (failure) {
-    formError.value = failure instanceof Error ? failure.message : '模板预览失败'
+    formError.value = errorMessage(failure, '模板预览失败')
   }
   finally {
     saving.value = false
@@ -164,10 +165,6 @@ onMounted(load)
         <Button v-if="auth.can('message:template:write')" size="sm" @click="edit()">
           <Plus class="size-4" />新增模板
         </Button>
-      </template><template #before>
-        <p v-if="error" role="alert" class="mb-3 text-sm text-destructive">
-          {{ error }}
-        </p>
       </template><div class="overflow-auto">
         <table class="w-full min-w-[850px] text-left text-sm">
           <thead class="bg-muted/40">
@@ -211,10 +208,8 @@ onMounted(load)
         </div><label class="block space-y-2"><span class="block text-sm">消息标题 <span class="text-destructive">*</span></span><AInput v-model:value="form.title" :maxlength="200" placeholder="支持 ${变量名}" /></label><div class="space-y-2">
           <span class="text-sm">模板正文 <span class="text-destructive">*</span></span><MessageEditor v-model="form.content" placeholder="编写正文，使用 ${name} 声明变量" />
         </div><div class="flex flex-wrap items-center justify-between gap-3">
-          <span class="text-xs text-muted-foreground">已识别变量：{{ variables.join('、') || '无' }}。变量只作文本替换，不执行表达式。</span><span class="flex items-center gap-2 text-sm">启用模板<ASwitch v-model:checked="form.enabled" aria-label="启用模板" /></span>
-        </div><p v-if="formError" role="alert" class="text-sm text-destructive">
-          {{ formError }}
-        </p>
+          <span class="text-xs text-muted-foreground">已识别变量：{{ variables.join('、') || '无' }}</span><span class="flex items-center gap-2 text-sm">启用模板<ASwitch v-model:checked="form.enabled" aria-label="启用模板" /></span>
+        </div>
       </div>
     </Modal>
     <Modal v-model:open="previewOpen" :mask-closable="false" title="模板预览" :width="760" :z-index="60" :footer="null">
@@ -225,9 +220,7 @@ onMounted(load)
           </div><Button type="submit" size="sm" :disabled="saving">
             生成预览
           </Button>
-        </form><p v-if="formError" role="alert" class="text-sm text-destructive">
-          {{ formError }}
-        </p><template v-if="rendered">
+        </form><template v-if="rendered">
           <h2 class="text-xl font-semibold break-words">
             {{ rendered.title }}
           </h2><MessageContentView :content="rendered.content" />

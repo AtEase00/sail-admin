@@ -11,7 +11,6 @@ import type { InboxMessage } from '../message-center'
 import MessageDetail from '../components/MessageDetail.vue'
 
 vi.mock('@/lib/api-client', () => ({ request: vi.fn(), apiFetch: vi.fn() }))
-vi.mock('vue-sonner', () => ({ toast: { success: vi.fn() } }))
 
 /** 以真实详情组件验证打开期间的撤回和到期处理，只替换 HTTP 传输。 */
 describe('个人消息详情实时状态', () => {

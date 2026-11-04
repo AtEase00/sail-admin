@@ -2,13 +2,14 @@
 import { CheckCheck } from '@lucide/vue'
 import { Drawer, Modal } from 'ant-design-vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { PreviewFile } from '@/sail/file-preview'
 import type { InboxMessage } from '@/sail/message-center'
 
 import { Button } from '@/components/ui/button'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import { messageUnavailable } from '@/sail/message-center'
 import { useDictionaryStore } from '@/stores/dictionaries'
 
@@ -23,7 +24,7 @@ const open = defineModel<boolean>('open', { default: false })
 const dictionaries = useDictionaryStore()
 const message = ref<InboxMessage>()
 const busy = ref(false)
-const error = ref('')
+const error = useMessageError()
 let revision = 0
 let expiryTimer: number | undefined
 watch(() => message.value?.taskStatus, () => {
@@ -61,7 +62,7 @@ async function load() {
   }
   catch (failure) {
     if (current === revision)
-      error.value = failure instanceof Error ? failure.message : '消息读取失败'
+      error.value = errorMessage(failure, '消息读取失败')
   }
   finally {
     if (current === revision)
@@ -77,10 +78,10 @@ async function confirm() {
     await request(`/messages/mine/${message.value.id}/confirm`, 'PUT')
     message.value = await request<InboxMessage>(`/messages/mine/${message.value.id}`)
     emit('changed')
-    toast.success('已确认此消息')
+    feedback.success('已确认此消息')
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '确认失败'
+    error.value = errorMessage(failure, '确认失败')
   }
   finally {
     busy.value = false
@@ -109,8 +110,6 @@ onBeforeUnmount(() => {
     <FilePreview :file="preview" @close="preview = undefined" />
     <p v-if="busy && !message" class="p-12 text-center text-muted-foreground">
       正在读取消息…
-    </p><p v-if="error" role="alert" class="mb-5 text-sm text-destructive">
-      {{ error }}
     </p><article v-if="message" class="space-y-6">
       <header class="space-y-3 border-b pb-5">
         <div class="flex flex-wrap gap-2 text-xs">

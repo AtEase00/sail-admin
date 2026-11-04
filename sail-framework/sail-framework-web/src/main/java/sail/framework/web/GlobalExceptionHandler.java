@@ -74,6 +74,6 @@ public class GlobalExceptionHandler {
         // 系统异常只在服务端输出堆栈，以追踪号定位。
         log.error("请求处理失败 traceId={}", RequestContext.traceId(), ex);
         return ResponseEntity.internalServerError()
-                .body(ApiResult.error(500, "服务处理失败，请联系管理员并提供追踪号"));
+                .body(ApiResult.error(500, "服务暂不可用，请稍后重试"));
     }
 }

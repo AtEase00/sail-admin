@@ -5,13 +5,14 @@ import { ref, watch } from 'vue'
 
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useMessageError } from '@/composables/use-message-error'
 import { BRAND_COLORS, DEFAULT_BRAND_COLOR } from '@/sail/theme-palette'
 import { useThemeStore } from '@/stores/theme'
 
 const theme = useThemeStore()
 const mode = useColorMode({ emitAuto: true })
 const input = ref(theme.brandColor)
-const error = ref('')
+const error = useMessageError()
 const modes = [{ value: 'light', name: '浅色', icon: Sun }, { value: 'dark', name: '深色', icon: Moon }, { value: 'auto', name: '跟随系统', icon: Monitor }] as const
 watch(() => theme.brandColor, (value) => {
   input.value = value
@@ -59,13 +60,7 @@ function applyColor(value: string) {
         <div class="flex items-center gap-2">
           <input type="color" :value="theme.brandColor" aria-label="选择自定义主题色" class="h-8 w-10 cursor-pointer rounded border bg-background p-1" @input="applyColor(($event.target as HTMLInputElement).value)"><input v-model="input" aria-label="主题色色值" class="h-8 min-w-0 flex-1 rounded border bg-background px-2 font-mono text-sm outline-none focus:border-primary focus:ring-2 focus:ring-ring/15" maxlength="7" @change="applyColor(input)" @keydown.enter.prevent="applyColor(input)">
         </div>
-        <p v-if="error" role="alert" class="text-xs text-destructive">
-          {{ error }}
-        </p>
       </section>
-      <p class="border-t pt-3 text-xs leading-5 text-muted-foreground">
-        主色同步应用于导航、按钮、表单、标签及图表。设置保存在当前浏览器。
-      </p>
     </PopoverContent>
   </Popover>
 </template>

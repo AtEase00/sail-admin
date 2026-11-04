@@ -9,6 +9,7 @@
     </parent>
     <artifactId>sail-server</artifactId>
     <dependencies>
+        <dependency><groupId>sail</groupId><artifactId>sail-job-server</artifactId></dependency>
         <dependency>
             <groupId>sail</groupId>
             <artifactId>sail-system-server</artifactId>

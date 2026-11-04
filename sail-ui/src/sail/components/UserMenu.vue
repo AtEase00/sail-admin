@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ChevronDown, KeyRound, LogOut, Mail, UserRound } from '@lucide/vue'
+import { ChevronDown, LogOut, Mail, UserRound } from '@lucide/vue'
 import { onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { message as feedback } from '@/lib/message'
 import { useAuthStore } from '@/stores/auth'
 
 defineProps<{ unread: number, connection: string }>()
@@ -35,7 +35,7 @@ async function logout() {
     await router.replace('/auth/sign-in')
   }
   catch (failure) {
-    toast.error(failure instanceof Error ? failure.message : '退出失败')
+    feedback.error(failure, '退出失败')
   }
   finally {
     leaving.value = false
@@ -69,7 +69,7 @@ onBeforeUnmount(() => {
       </DropdownMenuItem>
       <DropdownMenuItem as-child>
         <RouterLink to="/account">
-          <KeyRound class="size-4" />修改密码
+          <UserRound class="size-4" />个人中心
         </RouterLink>
       </DropdownMenuItem>
       <DropdownMenuSeparator />

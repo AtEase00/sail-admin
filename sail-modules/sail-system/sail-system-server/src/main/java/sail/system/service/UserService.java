@@ -55,6 +55,29 @@ public class UserService {
         return UserView.from(users.selectById(StpUtil.getLoginIdAsLong()));
     }
 
+    public sail.system.vo.ProfileView profile() {
+        long id = StpUtil.getLoginIdAsLong();
+        SysUser user = users.selectById(id);
+        SysDept dept = user.getDeptId() == null ? null : depts.selectById(user.getDeptId());
+        var postIds = relations.postIds(id);
+        var names = postIds.isEmpty() ? java.util.List.<String>of()
+                : posts.selectByIds(postIds).stream()
+                        .filter(post -> post.getStatus() == 1).map(SysPost::getName).toList();
+        return new sail.system.vo.ProfileView(UserView.from(user),
+                dept == null ? null : dept.getName(), names, user.getCreatedAt());
+    }
+
+    public UserView updateProfile(SystemRequests.Profile input) {
+        // 只更新当前会话的昵称，不能覆盖并发管理员修改的部门、状态或授权。
+        long id = StpUtil.getLoginIdAsLong();
+        int updated = users.update(null, Wrappers.<SysUser>lambdaUpdate()
+                .eq(SysUser::getId, id).eq(SysUser::getStatus, 1)
+                .set(SysUser::getNickname, input.nickname().strip())
+                .set(SysUser::getUpdatedAt, java.time.LocalDateTime.now()));
+        if (updated != 1) throw new BusinessException("账号不可用，请重新登录");
+        return me();
+    }
+
     public UserView get(long id) {
         /* 详情与列表采用相同数据范围。 */
         rbac.checkUserAccess(id);

@@ -1,0 +1,6 @@
+{
+  "passed": [
+    "isolated DB outage rejects new work; lost completion becomes UNKNOWN; verified process restart and resolution restore execution",
+    "250 paused definitions synchronized across page boundary in 1.83s; page 13 returns last 10; no executions created"
+  ]
+}

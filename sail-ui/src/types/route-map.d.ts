@@ -215,6 +215,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/system/job-executions': RouteRecordInfo<
+      '/system/job-executions',
+      '/system/job-executions',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/system/jobs': RouteRecordInfo<
+      '/system/jobs',
+      '/system/jobs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/system/menus': RouteRecordInfo<
       '/system/menus',
       '/system/menus',
@@ -463,6 +477,22 @@ declare module 'vue-router/auto-routes' {
     'src/pages/system/dictionaries.vue': {
       routes:
         | '/system/dictionaries'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/system/job-executions.vue': {
+      routes:
+        | '/system/job-executions'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/system/jobs.vue': {
+      routes:
+        | '/system/jobs'
       views:
         | never
       pathParamNames:

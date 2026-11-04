@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { ArrowRight } from '@lucide/vue'
-import { reactive, ref } from 'vue'
+import { reactive } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/composables/use-auth'
+import { useMessageError } from '@/composables/use-message-error'
+import { errorMessage, message } from '@/lib/message'
 import SailForm from '@/sail/components/SailForm.vue'
 
 const { login, loading } = useAuth()
 const route = useRoute()
+watch(() => route.query.expired, (expired) => {
+  if (expired)
+    message.warning('登录已失效，请重新登录')
+}, { immediate: true })
 const form = reactive({ username: '', password: '' })
-const error = ref('')
+const error = useMessageError()
 /** 只提交明确输入的真实凭据，不预填通用密码。 */
 async function submit() {
   error.value = ''
@@ -20,7 +26,7 @@ async function submit() {
     await login(form)
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '登录失败'
+    error.value = errorMessage(failure, '登录失败')
   }
 }
 </script>
@@ -31,9 +37,6 @@ async function submit() {
       登录
     </h1>
     <SailForm class="sail-form-vertical space-y-5" @submit.prevent="submit">
-      <p v-if="route.query.expired" role="status" class="text-sm text-muted-foreground">
-        登录已失效，请重新登录。
-      </p>
       <div class="space-y-2">
         <Label for="username">账号</Label>
         <Input
@@ -56,9 +59,7 @@ async function submit() {
           autocomplete="current-password"
         />
       </div>
-      <p v-if="error" role="alert" class="text-sm text-destructive break-words">
-        {{ error }}
-      </p>
+
       <Button class="group h-11 w-full gap-2" type="submit" :disabled="loading">
         {{ loading ? '正在登录…' : '登录' }}
         <ArrowRight v-if="!loading" aria-hidden="true" class="size-4 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none" />

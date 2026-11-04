@@ -7,13 +7,15 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { PreviewFile, PreviewKind } from '@/sail/file-preview'
 
 import { Button } from '@/components/ui/button'
+import { useMessageError } from '@/composables/use-message-error'
+import { errorMessage } from '@/lib/message'
 import { previewBlob, previewKind } from '@/sail/file-preview'
 import { attachmentSize, saveMessageBlob } from '@/sail/message-center'
 
 const props = defineProps<{ file: PreviewFile, removable?: boolean, downloadable?: boolean, disabled?: boolean }>()
 const emit = defineEmits<{ preview: [file: PreviewFile], remove: [] }>()
 const thumb = ref('')
-const failure = ref('')
+const failure = useMessageError()
 let generation = 0
 const kind = computed(() => previewKind(props.file.name))
 const icons: Partial<Record<PreviewKind, Component>> = { 'image': FileImage, 'sheet': FileSpreadsheet, 'word': FileText, 'office-text': Presentation, 'audio': Music, 'video': Video, 'unsupported': FileArchive }
@@ -43,7 +45,7 @@ async function download() {
   try {
     saveMessageBlob(await previewBlob(props.file), props.file.name)
   }
-  catch (error) { failure.value = error instanceof Error ? error.message : '下载失败' }
+  catch (error) { failure.value = errorMessage(error, '下载失败') }
 }
 watch(() => [props.file.id, props.file.taskId, props.file.local, props.file.name], thumbnail, { immediate: true })
 onBeforeUnmount(() => {
@@ -62,7 +64,7 @@ onBeforeUnmount(() => {
       <button type="button" class="block max-w-full truncate text-left text-sm hover:text-primary" :title="file.name" :disabled="disabled" @click="emit('preview', file)">
         {{ file.name }}
       </button><p class="mt-1 text-xs text-muted-foreground">
-        {{ failure || (file.size !== undefined ? attachmentSize(file.size) : '') }}<span v-if="!failure" class="ml-2 uppercase">{{ file.name.split('.').pop() }}</span>
+        {{ file.size !== undefined ? attachmentSize(file.size) : '' }}<span class="ml-2 uppercase">{{ file.name.split('.').pop() }}</span>
       </p>
     </div>
     <Button type="button" variant="ghost" size="icon" class="size-7" :aria-label="`预览${file.name}`" :disabled="disabled" @click="emit('preview', file)">

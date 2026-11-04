@@ -3,6 +3,20 @@ spring:
     name: sail-admin
   profiles:
     default: local
+  quartz:
+    auto-startup: ${sail.job.enabled:true}
+    job-store-type: jdbc
+    scheduler-name: sail-scheduler
+    jdbc:
+      initialize-schema: never
+    wait-for-jobs-to-complete-on-shutdown: true
+    properties:
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.useProperties: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.jobStore.misfireThreshold: 10000
+      org.quartz.threadPool.threadCount: 4
   sql:
     init:
       mode: never # base.sql 由操作者手工导入，应用不自动建表。
@@ -55,6 +69,10 @@ sa-token:
   is-log: false
   token-style: uuid
 sail:
+  job:
+    enabled: true
+    maintenance-delay-ms: 5000
+    stale-heartbeat-ms: 90000
   storage:
     max-bytes: 20971520
   redis:

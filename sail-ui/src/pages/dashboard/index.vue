@@ -9,25 +9,31 @@ import type { AuditOverview, OnlineOverview } from '@/services/types/workbench'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
-import { navigation } from '@/sail/navigation'
+import { errorMessage, message as feedback } from '@/lib/message'
+import { canAccessPage, navigation } from '@/sail/navigation'
 import { resolveMenuIcon } from '@/sail/navigation-icons'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const route = useRoute()
+watch(() => route.query.denied, (denied) => {
+  if (denied)
+    feedback.warning('没有该页面的访问权限')
+}, { immediate: true })
 const busy = ref(false)
 const messages = ref<MessageRecord[]>([])
 const unread = ref<number | null>(null)
 const audit = ref<AuditOverview | null>(null)
 const online = ref<OnlineOverview | null>(null)
-const messageError = ref('')
-const unreadError = ref('')
-const auditError = ref('')
-const onlineError = ref('')
+const messageError = useMessageError()
+const unreadError = useMessageError()
+const auditError = useMessageError()
+const onlineError = useMessageError()
 const today = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
 const canAudit = computed(() => auth.can('system:audit:query'))
-const shortcuts = computed(() => navigation.filter(item => ['/system/users', '/system/roles', '/files', '/messages/send', '/pay/orders', '/system/audit'].includes(item.path) && auth.can('permission' in item ? item.permission : undefined)))
+const shortcuts = computed(() => navigation.filter(item => ['/system/users', '/system/roles', '/files', '/messages/history', '/pay/orders', '/system/audit'].includes(item.path) && canAccessPage(item, auth)))
 const totals = computed(() => audit.value?.days.reduce((sum, day) => ({ success: sum.success + day.success, failed: sum.failed + day.failed }), { success: 0, failed: 0 }))
 const todayActivity = computed(() => audit.value?.days.at(-1))
 const successRate = computed(() => {
@@ -52,7 +58,7 @@ async function load() {
     }
     catch (failure) {
       unread.value = null
-      unreadError.value = failure instanceof Error ? failure.message : '未读数量读取失败'
+      unreadError.value = errorMessage(failure, '未读数量读取失败')
     }
   })(), (async () => {
     messageError.value = ''
@@ -61,7 +67,7 @@ async function load() {
     }
     catch (failure) {
       messages.value = []
-      messageError.value = failure instanceof Error ? failure.message : '消息暂不可用'
+      messageError.value = errorMessage(failure, '消息暂不可用')
     }
   })())
   if (canAudit.value) {
@@ -72,7 +78,7 @@ async function load() {
       }
       catch (failure) {
         audit.value = null
-        auditError.value = failure instanceof Error ? failure.message : '日志统计暂不可用'
+        auditError.value = errorMessage(failure, '日志统计暂不可用')
       }
     })())
   }
@@ -84,7 +90,7 @@ async function load() {
       }
       catch (failure) {
         online.value = null
-        onlineError.value = failure instanceof Error ? failure.message : '会话数据暂不可用'
+        onlineError.value = errorMessage(failure, '会话数据暂不可用')
       }
     })())
   }
@@ -125,9 +131,6 @@ onBeforeUnmount(() => {
         <RefreshCw class="size-3.5" :class="{ 'animate-spin': busy }" />刷新数据
       </Button>
     </div>
-    <p v-if="route.query.denied" role="alert" class="rounded-md border bg-background p-3 text-sm">
-      当前账号没有该页面的访问权限，请联系管理员。
-    </p>
 
     <div class="workbench-summary grid overflow-hidden rounded-lg border bg-background" :style="{ gridTemplateColumns: `repeat(${1 + (auth.isAdmin ? 1 : 0) + (canAudit ? 2 : 0)}, minmax(0, 1fr))` }">
       <div v-if="auth.isAdmin" class="px-5 py-4">
@@ -188,9 +191,7 @@ onBeforeUnmount(() => {
           <div v-if="busy && !audit" class="space-y-4 p-5">
             <Skeleton class="h-44 w-full" /><Skeleton class="h-20 w-full" />
           </div>
-          <p v-else-if="auditError" role="alert" class="p-8 text-center text-sm text-destructive">
-            {{ auditError }}，可点击上方刷新重试。
-          </p>
+
           <div v-else-if="audit" class="p-5">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span class="text-muted-foreground">操作次数<span class="ml-2 tabular-nums">峰值 {{ peak === 1 && !totals?.success && !totals?.failed ? 0 : peak }}</span></span>
@@ -247,9 +248,7 @@ onBeforeUnmount(() => {
           <div v-if="busy && !audit" class="space-y-3 p-5">
             <Skeleton v-for="n in 4" :key="n" class="h-8 w-full" />
           </div>
-          <p v-else-if="auditError" role="alert" class="p-8 text-center text-sm text-destructive">
-            {{ auditError }}
-          </p>
+
           <div v-else class="overflow-x-auto">
             <table class="w-full text-left text-sm">
               <caption class="sr-only">
@@ -311,9 +310,7 @@ onBeforeUnmount(() => {
           <div v-if="busy && !online" class="space-y-4 p-4">
             <Skeleton v-for="n in 3" :key="n" class="h-10 w-full" />
           </div>
-          <p v-else-if="onlineError" role="alert" class="p-5 text-sm text-destructive">
-            {{ onlineError }}
-          </p>
+
           <ul v-else class="divide-y">
             <li v-for="person in online?.records" :key="person.id" class="flex items-center gap-3 px-4 py-3">
               <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium">{{ person.nickname.slice(0, 1) }}</span><div class="min-w-0 flex-1">
@@ -327,9 +324,6 @@ onBeforeUnmount(() => {
           </ul>
           <p v-if="online && !online.records.length" class="p-5 text-sm text-muted-foreground">
             暂无有效登录会话。
-          </p>
-          <p class="border-t px-4 py-3 text-xs leading-5 text-muted-foreground">
-            按有效登录会话统计，不代表正在操作。{{ online && online.total > 8 ? '仅显示最近登录的 8 位用户。' : '' }}
           </p>
         </section>
         <section class="rounded-lg border bg-background">
@@ -360,8 +354,6 @@ onBeforeUnmount(() => {
             <div v-if="!messages.length" class="px-5 py-8 text-center">
               <CheckCheck class="mx-auto mb-2 size-6 text-muted-foreground" /><p class="text-sm">
                 {{ messageError ? '消息读取失败' : '暂无消息' }}
-              </p><p class="mt-1 text-xs text-muted-foreground">
-                {{ messageError || '收到的通知会显示在这里' }}
               </p>
             </div>
           </div>

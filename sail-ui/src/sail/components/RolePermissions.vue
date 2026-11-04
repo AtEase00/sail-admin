@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onDeactivated, ref } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { Row } from '@/services/types/sail'
 
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import { buildTree, filterTree } from '@/sail/tree'
 import { useAuthStore } from '@/stores/auth'
 
@@ -19,7 +20,7 @@ const auth = useAuthStore()
 const opened = ref(false)
 const busy = ref(false)
 const loaded = ref(false)
-const error = ref('')
+const error = useMessageError()
 const keyword = ref('')
 const menus = ref<Row[]>([])
 const selected = ref<number[]>([])
@@ -38,7 +39,7 @@ async function show() {
     loaded.value = true
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '权限加载失败'
+    error.value = errorMessage(failure, '权限加载失败')
   }
   finally { busy.value = false }
 }
@@ -56,12 +57,12 @@ async function save() {
     await request(`/system/roles/${props.row.id}/menus`, 'PUT', { ids: selected.value })
     selected.value = await request<number[]>(`/system/roles/${props.row.id}/menus`)
     await auth.hydrate(true)
-    toast.success('角色菜单权限已保存')
+    feedback.success('角色菜单权限已保存')
     emit('changed')
     opened.value = false
   }
   catch (failure) {
-    error.value = failure instanceof Error ? failure.message : '授权保存失败'
+    error.value = errorMessage(failure, '授权保存失败')
   }
   finally { busy.value = false }
 }
@@ -75,8 +76,8 @@ onDeactivated(() => {
     {{ row.builtIn ? '查看权限' : '分配权限' }}
   </Button>
   <Dialog v-model:open="opened">
-    <DialogContent class="flex max-h-[85svh] flex-col sm:max-w-2xl">
-      <DialogHeader><DialogTitle>{{ row.name }} · 菜单权限</DialogTitle><DialogDescription>{{ row.builtIn ? '超级管理员拥有全部权限，内置角色无需逐项分配。' : '勾选目录、页面和按钮权限。勾选分组可选中整条分支，所有层级默认展开。' }}</DialogDescription></DialogHeader>
+    <DialogContent :aria-describedby="undefined" class="flex max-h-[85svh] flex-col sm:max-w-2xl">
+      <DialogHeader><DialogTitle>{{ row.name }} · 菜单权限</DialogTitle></DialogHeader>
       <div class="flex flex-wrap items-center gap-2">
         <Input v-model="keyword" class="min-w-40 flex-1" aria-label="搜索菜单权限" placeholder="搜索名称或权限标识" /><template v-if="!row.builtIn">
           <Button variant="outline" size="sm" :disabled="busy || !loaded" @click="selected = menus.map(item => item.id)">
@@ -86,11 +87,7 @@ onDeactivated(() => {
           </Button>
         </template><span class="text-xs text-muted-foreground">已选 {{ selected.length }} 项</span>
       </div>
-      <p v-if="error" role="alert" class="text-sm text-destructive">
-        {{ error }} <Button variant="link" size="sm" @click="show">
-          重试
-        </Button>
-      </p>
+
       <div class="min-h-40 overflow-y-auto rounded-md border p-2">
         <p v-if="busy" class="p-4 text-sm text-muted-foreground">
           正在读取权限…
@@ -101,6 +98,9 @@ onDeactivated(() => {
         </template>
       </div>
       <DialogFooter>
+        <Button v-if="error" variant="outline" :disabled="busy" @click="show">
+          重试
+        </Button>
         <Button variant="outline" @click="opened = false">
           取消
         </Button><Button v-if="!row.builtIn && auth.isAdmin" :disabled="busy || !loaded" @click="save">

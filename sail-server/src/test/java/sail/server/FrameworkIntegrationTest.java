@@ -178,7 +178,42 @@ class FrameworkIntegrationTest {
         assertEquals(userId, users.get("records").get(0).get("id").asLong());
         assertEquals(403, call("GET", "/api/system/users/1", null, user).statusCode());
         assertEquals(403, call("GET", "/api/pay/channels", null, user).statusCode());
+        // 普通用户无需用户管理权限即可维护本人，但不能借个人入口越权修改管理员或组织。
+        data(call("PUT", "/api/system/auth/profile",
+                json.writeValueAsString(Map.of("nickname", "工作人员", "id", 1, "deptId", 99999,
+                        "status", 0, "roles", List.of("SUPER_ADMIN"))), user));
+        var personal = data(call("GET", "/api/system/auth/profile", null, user));
+        assertEquals(userId, personal.get("user").get("id").asLong());
+        assertEquals(1, personal.get("user").get("status").asInt());
+        assertTrue(personal.get("user").get("deptId").isNull());
+        assertEquals("WORKER", data(call("GET", "/api/system/auth/me", null, user)).get("roles").get(0).asString());
         assertFalse(call("GET", "/api/system/users", null, admin).body().contains("passwordHash"));
+    }
+
+    @Test
+    @Order(3)
+    void personalProfileIsRestrictedToCurrentAccount() throws Exception {
+        String token = login("admin", "SailTestOnly!2026");
+        assertEquals(401, call("GET", "/api/system/auth/profile", null, null).statusCode());
+        assertEquals(401, call("PUT", "/api/system/auth/profile", "{\"nickname\":\"匿名\"}", null).statusCode());
+        var before = data(call("GET", "/api/system/auth/profile", null, token));
+        String original = before.get("user").get("nickname").asString();
+        long id = before.get("user").get("id").asLong();
+        assertTrue(before.has("department"));
+        assertTrue(before.has("posts"));
+        assertFalse(before.toString().contains("passwordHash"));
+        assertEquals(400, call("PUT", "/api/system/auth/profile", "{\"nickname\":\"  \"}", token).statusCode());
+        assertEquals(400, call("PUT", "/api/system/auth/profile",
+                json.writeValueAsString(Map.of("nickname", "x".repeat(65))), token).statusCode());
+        data(call("PUT", "/api/system/auth/profile",
+                json.writeValueAsString(Map.of("nickname", "  个人昵称  ", "id", 99999, "status", 0, "deptId", 99999, "roles", List.of("OTHER"))), token));
+        var after = data(call("GET", "/api/system/auth/profile", null, token));
+        assertEquals(id, after.get("user").get("id").asLong());
+        assertEquals("个人昵称", after.get("user").get("nickname").asString());
+        assertEquals(before.get("user").get("deptId"), after.get("user").get("deptId"));
+        assertEquals(1, after.get("user").get("status").asInt());
+        assertEquals("SUPER_ADMIN", data(call("GET", "/api/system/auth/me", null, token)).get("roles").get(0).asString());
+        data(call("PUT", "/api/system/auth/profile", json.writeValueAsString(Map.of("nickname", original)), token));
     }
 
     @Test
@@ -342,6 +377,7 @@ class FrameworkIntegrationTest {
                         .asString();
         java.util.concurrent.CompletableFuture<String> received =
                 new java.util.concurrent.CompletableFuture<>();
+        java.util.concurrent.CompletableFuture<String> pong = new java.util.concurrent.CompletableFuture<>();
         WebSocket ws =
                 client.newWebSocketBuilder()
                         .buildAsync(
@@ -352,12 +388,15 @@ class FrameworkIntegrationTest {
                                     public java.util.concurrent.CompletionStage<?> onText(
                                             WebSocket webSocket, CharSequence text, boolean last) {
                                         received.complete(text.toString());
+                                        if (text.toString().contains("PONG")) pong.complete(text.toString());
                                         webSocket.request(1);
                                         return null;
                                     }
                                 })
                         .join();
         assertTrue(received.get(5, java.util.concurrent.TimeUnit.SECONDS).contains("CONNECTED"));
+        ws.sendText("{\"type\":\"PING\"}", true).join();
+        assertTrue(pong.get(5, java.util.concurrent.TimeUnit.SECONDS).contains("PONG"));
         ws.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
         assertNull(sockets.consume(ticket));
     }

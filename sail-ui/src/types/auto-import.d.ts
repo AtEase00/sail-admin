@@ -76,6 +76,7 @@ declare global {
   const useCssVars: typeof import('vue').useCssVars
   const useDictionaryStore: typeof import('../stores/dictionaries').useDictionaryStore
   const useId: typeof import('vue').useId
+  const useMessageError: typeof import('../composables/use-message-error').useMessageError
   const useModel: typeof import('vue').useModel
   const useRoute: typeof import('vue-router').useRoute
   const useRouter: typeof import('vue-router').useRouter

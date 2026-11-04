@@ -1,13 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage } from '@/lib/message'
 
 /** 站点展示资料从后台受控配置获取，配置缺失时保留明确提示。 */
 export const useWebsiteStore = defineStore('sail-website', () => {
   const title = ref('')
   const logo = ref('')
-  const error = ref('')
+  const error = useMessageError()
   /** 浏览器标签图标与侧栏共用后台标志，清除旧媒体条件避免覆盖。 */
   function updateFavicon() {
     document.querySelectorAll('link[rel="icon"]').forEach(link => link.remove())
@@ -26,7 +28,7 @@ export const useWebsiteStore = defineStore('sail-website', () => {
       error.value = ''
     }
     catch (failure) {
-      error.value = failure instanceof Error ? failure.message : '站点信息读取失败'
+      error.value = errorMessage(failure, '站点信息读取失败')
     }
   }
   return { title, logo, error, load }

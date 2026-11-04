@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { Download, MoreHorizontal, Plus, RefreshCw } from '@lucide/vue'
 import { Input as AInput, Select as ASelect, Drawer, Modal } from 'ant-design-vue'
-import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import type { MessageReceipt, MessageTask } from '@/sail/message-center'
 import type { PageResult } from '@/services/types/sail'
 
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useMessageError } from '@/composables/use-message-error'
 import { apiFetch, request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import AdvancedTable from '@/sail/components/AdvancedTable.vue'
 import ListPagination from '@/sail/components/ListPagination.vue'
+import MessageComposer from '@/sail/components/MessageComposer.vue'
 import MessageContentView from '@/sail/components/MessageContentView.vue'
 import MessageTheme from '@/sail/components/MessageTheme.vue'
 import QueryBar from '@/sail/components/QueryBar.vue'
@@ -22,8 +24,20 @@ import { useAuthStore } from '@/stores/auth'
 import { useDictionaryStore } from '@/stores/dictionaries'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const dictionaries = useDictionaryStore()
+const composerOpen = computed(() => auth.can('message:send') && route.query.compose === '1')
+function compose(query: Record<string, string | number> = {}) {
+  void router.push({ path: '/messages/history', query: { compose: '1', ...query } })
+}
+function closeComposer() {
+  void router.push({ path: '/messages/history' })
+}
+watch(composerOpen, (open, previous) => {
+  if (!open && previous && auth.can('message:query'))
+    void load()
+})
 const columns = [{ key: 'title', label: '消息标题' }, { key: 'category', label: '分类' }, { key: 'priority', label: '重要程度' }, { key: 'status', label: '发布状态' }, { key: 'delivery', label: '投递 / 接收' }, { key: 'reading', label: '已读 / 已确认' }, { key: 'senderName', label: '发布人' }, { key: 'createdAt', label: '创建时间' }]
 const { showQuery, hiddenColumns, columnOrder, leftPins, rightPins, density, visibleColumns } = useListView('message-tasks', columns)
 const keyword = ref('')
@@ -37,14 +51,14 @@ const size = ref(20)
 const total = ref(0)
 const rows = ref<MessageTask[]>([])
 const busy = ref(false)
-const error = ref('')
+const error = useMessageError()
 let revision = 0
 let polling: number | undefined
 const fields = computed(() => [{ key: 'category', label: '消息分类', options: dictionaries.options('message_category') }, { key: 'priority', label: '重要程度', options: dictionaries.options('message_priority') }])
 const detailOpen = ref(false)
 const task = ref<MessageTask>()
 const detailBusy = ref(false)
-const detailError = ref('')
+const detailError = useMessageError()
 const receipts = ref<MessageReceipt[]>([])
 const receiptKeyword = ref('')
 const receiptStatus = ref('')
@@ -57,6 +71,8 @@ let receiptRevision = 0
 const receiptOptions = computed(() => [...dictionaries.options('message_delivery_status'), { value: 'READ', label: '已阅读' }, { value: 'UNREAD', label: '未阅读' }, { value: 'CONFIRMED', label: '已确认' }, { value: 'UNCONFIRMED', label: '未确认' }])
 /** 查询固定交给后端，翻页与自动刷新共用已应用的条件。 */
 async function load() {
+  if (!auth.can('message:query'))
+    return
   const current = ++revision
   busy.value = true
   error.value = ''
@@ -69,7 +85,7 @@ async function load() {
   }
   catch (failure) {
     if (current === revision)
-      error.value = failure instanceof Error ? failure.message : '发布记录加载失败'
+      error.value = errorMessage(failure, '发布记录加载失败')
   }
   finally {
     if (current === revision)
@@ -108,7 +124,7 @@ async function showDetail(id: number) {
       await loadReceipts()
   }
   catch (failure) {
-    detailError.value = failure instanceof Error ? failure.message : '发布详情加载失败'
+    detailError.value = errorMessage(failure, '发布详情加载失败')
   }
   finally {
     detailBusy.value = false
@@ -129,7 +145,7 @@ async function loadReceipts() {
   }
   catch (failure) {
     if (current === receiptRevision)
-      detailError.value = failure instanceof Error ? failure.message : '接收回执加载失败'
+      detailError.value = errorMessage(failure, '接收回执加载失败')
   }
   finally {
     if (current === receiptRevision)
@@ -160,11 +176,11 @@ function action(row: MessageTask, operation: string) {
   Modal.confirm({ title: `${labels[operation]}？`, content: `消息：${row.title || '未命名草稿'}。${operation === 'withdraw' ? '撤回后接收人无法再访问正文和附件，阅读记录保留。' : operation === 'retry' ? '仅重新处理失败人员，成功人员不会重复收到。' : ''}`, okText: labels[operation], cancelText: '返回', okButtonProps: { danger: ['withdraw', 'delete'].includes(operation) }, onOk: async () => {
     try {
       await request(operation === 'delete' ? `/messages/tasks/${row.id}` : `/messages/tasks/${row.id}/${operation}`, operation === 'delete' ? 'DELETE' : 'POST')
-      toast.success('操作成功')
+      feedback.success('操作成功')
       await load()
     }
     catch (failure) {
-      error.value = failure instanceof Error ? failure.message : '操作失败'
+      error.value = errorMessage(failure, '操作失败')
       throw failure
     }
   } })
@@ -196,20 +212,16 @@ onBeforeUnmount(() => {
 
 <template>
   <MessageTheme>
-    <AdvancedTable v-model:show-query="showQuery" v-model:hidden-columns="hiddenColumns" v-model:column-order="columnOrder" v-model:left-pins="leftPins" v-model:right-pins="rightPins" v-model:density="density" :columns="columns" title="消息发布记录" :total="total" :loading="busy" @refresh="load">
+    <AdvancedTable v-if="auth.can('message:query')" v-model:show-query="showQuery" v-model:hidden-columns="hiddenColumns" v-model:column-order="columnOrder" v-model:left-pins="leftPins" v-model:right-pins="rightPins" v-model:density="density" :columns="columns" title="消息发布记录" :total="total" :loading="busy" @refresh="load">
       <template #query>
         <QueryBar v-model:keyword="keyword" v-model:status="status" v-model:values="values" v-model:created-from="createdFrom" v-model:created-to="createdTo" dates label="消息标题" placeholder="输入消息标题" :fields="fields" :statuses="dictionaries.options('message_task_status')" :busy="busy" @search="search" @reset="reset" />
       </template>
       <template #actions>
-        <Button v-if="auth.can('message:send')" size="sm" @click="router.push('/messages/send')">
+        <Button v-if="auth.can('message:send')" size="sm" @click="compose()">
           <Plus class="size-4" />发布消息
         </Button>
       </template>
-      <template #before>
-        <p v-if="error" role="alert" class="mb-3 text-sm text-destructive">
-          {{ error }}
-        </p>
-      </template>
+
       <div class="overflow-auto">
         <table class="w-full min-w-[980px] text-left text-sm">
           <thead class="bg-muted/40">
@@ -230,7 +242,7 @@ onBeforeUnmount(() => {
                 <div class="flex items-center gap-2">
                   <Button size="sm" variant="link" class="h-7 px-0" @click="showDetail(row.id)">
                     详情
-                  </Button><Button v-if="own(row) && auth.can('message:send') && ['DRAFT', 'CANCELLED'].includes(row.status)" size="sm" variant="link" class="h-7 px-0" @click="router.push({ path: '/messages/send', query: { draft: row.id } })">
+                  </Button><Button v-if="own(row) && auth.can('message:send') && ['DRAFT', 'CANCELLED'].includes(row.status)" size="sm" variant="link" class="h-7 px-0" @click="compose({ draft: row.id })">
                     编辑
                   </Button><DropdownMenu>
                     <DropdownMenuTrigger as-child>
@@ -238,7 +250,7 @@ onBeforeUnmount(() => {
                         <MoreHorizontal class="size-4" />
                       </Button>
                     </DropdownMenuTrigger><DropdownMenuContent align="end">
-                      <DropdownMenuItem v-if="own(row) && auth.can('message:send')" @select="router.push({ path: '/messages/send', query: { copy: row.id } })">
+                      <DropdownMenuItem v-if="own(row) && auth.can('message:send')" @select="compose({ copy: row.id })">
                         复制为新消息
                       </DropdownMenuItem><DropdownMenuItem v-if="auth.can('message:cancel') && ['QUEUED', 'SCHEDULED'].includes(row.status)" @select="action(row, 'cancel')">
                         取消发布
@@ -255,7 +267,7 @@ onBeforeUnmount(() => {
               </td>
             </tr><tr v-if="!rows.length">
               <td :colspan="visibleColumns.length + 1" class="p-12 text-center text-muted-foreground">
-                {{ busy ? '正在读取发布记录…' : error ? '记录暂不可用，请重试' : '暂无发布记录，可创建消息或保存草稿' }}
+                {{ busy ? '正在读取发布记录…' : error ? '记录暂不可用，请重试' : '暂无发布记录' }}
               </td>
             </tr>
           </tbody>
@@ -268,8 +280,6 @@ onBeforeUnmount(() => {
     <Drawer v-model:open="detailOpen" title="发布详情" width="min(1000px,96vw)" :z-index="60" :mask-closable="false">
       <p v-if="detailBusy" class="py-10 text-center text-muted-foreground">
         正在读取发布详情…
-      </p><p v-if="detailError" role="alert" class="mb-4 text-destructive">
-        {{ detailError }}
       </p><div v-if="task" class="space-y-6">
         <div>
           <div class="mb-3 flex items-center justify-between gap-3">
@@ -353,6 +363,12 @@ onBeforeUnmount(() => {
         </section>
       </div>
     </Drawer>
+    <Button v-if="!auth.can('message:query') && auth.can('message:send')" size="sm" @click="compose()">
+      <Plus class="size-4" />发布消息
+    </Button>
+    <Drawer :open="composerOpen" title="发布消息" width="min(1360px,100vw)" :z-index="60" :mask-closable="false" :keyboard="false" @close="closeComposer">
+      <MessageComposer v-if="composerOpen" />
+    </Drawer>
   </MessageTheme>
 </template>
 
@@ -361,5 +377,5 @@ meta:
   sail: true
   title: 发布记录
   auth: true
-  permission: message:query
+  permissions: [message:query, message:send]
 </route>

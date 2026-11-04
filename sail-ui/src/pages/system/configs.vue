@@ -2,13 +2,14 @@
 import { Building2, HardDrive, ImagePlus, Mail, RotateCcw, Save, ShieldCheck, Upload } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import ResourcePage from '@/sail/components/ResourcePage.vue'
 import SailForm from '@/sail/components/SailForm.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -23,7 +24,7 @@ const fields = ref<SettingField[]>([])
 const values = reactive<Record<string, string>>({})
 const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
+const error = useMessageError()
 const logoUploading = ref(false)
 const logoInput = ref<HTMLInputElement>()
 /** 专用接口校验图片后上传，保存配置后统一更新侧栏和浏览器图标。 */
@@ -45,7 +46,7 @@ async function uploadLogo(event: Event) {
     const result = await request<{ url: string }>('/file/website-logo', 'POST', form)
     values['website.logo'] = result.url
   }
-  catch (failure) { error.value = failure instanceof Error ? failure.message : '标志上传失败' }
+  catch (failure) { error.value = errorMessage(failure, '标志上传失败') }
   finally { logoUploading.value = false }
 }
 const visible = computed(() => fields.value.filter(field => field.group === active.value))
@@ -60,7 +61,7 @@ async function load() {
       values[field.key] = field.value ?? ''
     })
   }
-  catch (failure) { error.value = failure instanceof Error ? failure.message : '配置加载失败' }
+  catch (failure) { error.value = errorMessage(failure, '配置加载失败') }
   finally { loading.value = false }
 }
 /** 保存当前组的完整输入，后端在同一事务中校验和写入。 */
@@ -79,9 +80,9 @@ async function save() {
     })
     window.dispatchEvent(new Event('sail:website-changed'))
     window.dispatchEvent(new Event('sail:message-settings-changed'))
-    toast.success('配置已保存并生效')
+    feedback.success('配置已保存并生效')
   }
-  catch (failure) { error.value = failure instanceof Error ? failure.message : '保存失败' }
+  catch (failure) { error.value = errorMessage(failure, '保存失败') }
   finally { saving.value = false }
 }
 /** 切换组前保留未提交输入，返回时可继续编辑。 */
@@ -110,16 +111,12 @@ onMounted(load)
         <div>
           <h2 class="font-semibold">
             {{ active === 'general' ? '站点信息' : active === 'message' ? '消息发布与提醒' : '账号登录策略' }}
-          </h2><p class="mt-1 text-sm text-muted-foreground">
-            {{ active === 'general' ? '统一管理导航栏标志与浏览器标题。' : active === 'message' ? '统一管理接收人数、定时时间、附件、撤回及顶部提醒。' : '配置连续登录失败的锁定规则，保存后立即生效。' }}
-          </p>
+          </h2>
         </div><Button variant="ghost" size="icon" aria-label="重新加载配置" :disabled="loading || saving" @click="load">
           <RotateCcw class="size-4" />
         </Button>
       </div>
-      <p v-if="error" role="alert" class="mx-6 mt-5 text-sm text-destructive">
-        {{ error }}
-      </p>
+
       <p v-if="loading" class="p-6 text-sm text-muted-foreground">
         正在读取配置…
       </p>
@@ -138,14 +135,10 @@ onMounted(load)
                   </Button><Button v-if="values[field.key]" type="button" variant="ghost" :disabled="saving || logoUploading || !auth.isAdmin" @click="values[field.key] = ''">
                     恢复默认
                   </Button>
-                </div><p class="text-xs text-muted-foreground">
-                  标志将作为公开图片，保存后同步更新两处图标。
-                </p>
+                </div>
               </div>
               <input :ref="el => logoInput = el as HTMLInputElement" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" class="hidden" aria-label="上传站点标志" @change="uploadLogo">
-            </div><Switch v-else-if="field.inputType === 'switch'" :id="field.key" :model-value="values[field.key] === '1'" :disabled="saving || !auth.isAdmin" @update:model-value="values[field.key] = $event ? '1' : '0'" /><Input v-else :id="field.key" v-model="values[field.key]" :type="field.inputType === 'number' ? 'number' : 'text'" :min="field.inputType === 'number' ? field.min : undefined" :max="field.inputType === 'number' ? field.max : undefined" :maxlength="field.key === 'website.title' ? 64 : 2000" :required="field.key !== 'website.logo'" :disabled="saving || !auth.isAdmin" /><p class="text-xs leading-5 text-muted-foreground">
-              {{ field.help }}<span v-if="field.value === null">；当前尚未配置</span>
-            </p>
+            </div><Switch v-else-if="field.inputType === 'switch'" :id="field.key" :model-value="values[field.key] === '1'" :disabled="saving || !auth.isAdmin" @update:model-value="values[field.key] = $event ? '1' : '0'" /><Input v-else :id="field.key" v-model="values[field.key]" :type="field.inputType === 'number' ? 'number' : 'text'" :min="field.inputType === 'number' ? field.min : undefined" :max="field.inputType === 'number' ? field.max : undefined" :maxlength="field.key === 'website.title' ? 64 : 2000" :required="field.key !== 'website.logo'" :disabled="saving || !auth.isAdmin" />
           </div>
         </div>
         <div v-if="auth.isAdmin" class="flex gap-2 border-t pt-5 sm:pl-[140px]">

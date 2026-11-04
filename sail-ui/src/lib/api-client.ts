@@ -12,7 +12,7 @@ export class ApiError extends Error {
     public status: number,
     public traceId = '',
   ) {
-    super(traceId ? `${message}（追踪号 ${traceId}）` : message)
+    super(message)
   }
 }
 /** 保留上游 ofetch 入口，实际请求携带 Sail Bearer 令牌。 */
@@ -20,7 +20,12 @@ export const apiFetch = ofetch.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   retry: 0,
-  onRequest({ options }) {
+  onRequest({ request, options }) {
+    // 登录失败不代表已有会话失效；登录请求不携带旧会话。
+    if (typeof request === 'string' && /\/system\/auth\/login(?:\?|$)/.test(request)) {
+      options.headers.delete('Authorization')
+      return
+    }
     const token = readToken()
     if (token)
       options.headers.set('Authorization', `Bearer ${token}`)

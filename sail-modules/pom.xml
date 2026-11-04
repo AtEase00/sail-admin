@@ -14,5 +14,6 @@
         <module>sail-file</module>
         <module>sail-message</module>
         <module>sail-pay</module>
+        <module>sail-job</module>
     </modules>
 </project>

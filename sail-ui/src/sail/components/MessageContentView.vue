@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
+import { useMessageError } from '@/composables/use-message-error'
 import { messageAttachmentBlob, sanitizeMessageHtml } from '@/sail/message-center'
 
 import ImagePreview from './ImagePreview.vue'
 
 const props = defineProps<{ content: string, taskId?: number | null }>()
 const host = ref<HTMLElement | null>(null)
-const error = ref('')
+const error = useMessageError()
 const html = ref('')
 const urls: string[] = []
 const preview = ref<{ src: string, alt: string }>()
@@ -71,9 +72,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <div ref="host" class="message-body message-content-view" @click="openImage" @keydown="openImage" v-html="html" /><p v-if="error" role="alert" class="mt-3 text-sm text-destructive">
-      {{ error }}
-    </p>
+    <div ref="host" class="message-body message-content-view" @click="openImage" @keydown="openImage" v-html="html" />
     <ImagePreview v-if="preview" :src="preview.src" :alt="preview.alt" open @close="preview = undefined" />
   </div>
 </template>

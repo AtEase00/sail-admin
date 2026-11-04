@@ -61,14 +61,14 @@ describe('后台展示元数据', () => {
     expect(store.label('sys_operation_type', 'INSERT')).toBe('新增')
     expect(store.item('sys_operation_type', 'INSERT')?.color).toBe('success')
   })
-  it('加载失败清除过期字典并保留服务错误和追踪号', async () => {
+  it('加载失败清除过期字典，用户错误不拼接追踪号', async () => {
     const store = dictionaries.useDictionaryStore()
     await store.load()
     unavailable = true
     await store.load()
     expect(store.options('sys_operation_type')).toEqual([])
     expect(store.error).toContain('字典服务暂不可用')
-    expect(store.error).toContain('metadata-http-test')
+    expect(store.error).not.toContain('metadata-http-test')
   })
   it('站点资料读取实际配置，失败保留已加载内容并明确报错', async () => {
     const store = website.useWebsiteStore()

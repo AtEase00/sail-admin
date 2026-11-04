@@ -33,3 +33,7 @@ If the project has tests configured (e.g. a `test` script), run them as well.
 
 - `.agents/skills/shadcn-vue-admin/references/SYSTEM_KNOWLEDGE_MAP.md`
 - `.agents/skills/shadcn-vue-admin/references/testing-strategy.md`
+
+## Required UI conventions
+
+Before changing pages, forms, or feedback, read `.agents/skills/shadcn-vue-admin/SKILL.md`, especially “Sail 页面文案与操作反馈”. Keep visible text minimal; do not add self-descriptive feature explanations. Use the single global Message API for operation feedback and errors.

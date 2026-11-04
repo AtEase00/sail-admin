@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import QRCode from 'qrcode'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
-import { toast } from 'vue-sonner'
 
 import type { PageResult, PayOrder, Row } from '@/services/types/sail'
 
@@ -24,7 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useMessageError } from '@/composables/use-message-error'
 import { request } from '@/lib/api-client'
+import { errorMessage, message as feedback } from '@/lib/message'
 import AdvancedTable from '@/sail/components/AdvancedTable.vue'
 import FormSelect from '@/sail/components/FormSelect.vue'
 import ListPagination from '@/sail/components/ListPagination.vue'
@@ -65,11 +66,11 @@ const total = ref(0)
 const loading = ref(false)
 const operating = ref(false)
 const busy = computed(() => loading.value || operating.value)
-const error = ref('')
+const error = useMessageError()
 const creating = ref(false)
 const confirmNew = ref(false)
 const closeTarget = ref<PayOrder | null>(null)
-const formError = ref('')
+const formError = useMessageError()
 const applications = ref<Row[]>([])
 const channels = ref<Row[]>([])
 const createKey = ref('')
@@ -87,11 +88,11 @@ const available = computed(() =>
 const viewed = ref<PayOrder | null>(null)
 const qrImage = ref('')
 const detailOpen = ref(false)
-const detailError = ref('')
+const detailError = useMessageError()
 const refundOpen = ref(false)
 const refundTarget = ref<PayOrder | null>(null)
 const reason = ref('')
-const refundError = ref('')
+const refundError = useMessageError()
 let poll: number | undefined
 let detailVersion = 0
 let disposed = false
@@ -117,7 +118,7 @@ async function load() {
   catch (failure) {
     orders.value = []
     total.value = 0
-    error.value = failure instanceof Error ? failure.message : '订单加载失败'
+    error.value = errorMessage(failure, '订单加载失败')
   }
   finally {
     loading.value = false
@@ -141,7 +142,7 @@ async function openCreate() {
     configurationReady.value = true
   }
   catch (failure) {
-    formError.value = failure instanceof Error ? failure.message : '支付配置加载失败'
+    formError.value = errorMessage(failure, '支付配置加载失败')
   }
   finally {
     operating.value = false
@@ -201,7 +202,7 @@ async function show(order: PayOrder) {
     }
     catch (failure) {
       if (version === detailVersion)
-        detailError.value = failure instanceof Error ? failure.message : '状态读取失败，请手动查单'
+        detailError.value = errorMessage(failure, '状态读取失败，请手动查单')
     }
   }
   if (version === detailVersion && detailOpen.value && order.status === 'PENDING')
@@ -244,7 +245,7 @@ async function create(confirmed = false) {
   }
   catch (failure) {
     formError.value
-      = `${failure instanceof Error ? failure.message : '下单失败'
+      = `${errorMessage(failure, '下单失败')
       }。如发生网络失败，请保留业务单号并核对订单列表，不要另建单号重复扣款。`
   }
   finally {
@@ -268,10 +269,10 @@ async function operate(order: PayOrder, action: 'sync' | 'resubmit' | 'close') {
     await load()
     if (detailOpen.value && viewed.value?.id === order.id)
       await show(current)
-    toast.success('操作已完成，状态以渠道查询结果为准')
+    feedback.success('操作已完成')
   }
   catch (failure) {
-    const message = failure instanceof Error ? failure.message : '操作失败'
+    const message = errorMessage(failure, '操作失败')
     error.value = message
     detailError.value = message
   }
@@ -296,15 +297,15 @@ async function refund() {
     const result = await request<Row>(`/pay/orders/${refundTarget.value.id}/refund`, 'POST', {
       reason: reason.value,
     })
-    toast.success(
-      result.status === 'SUCCESS' ? '整单退款成功' : '退款申请已记录，请在退款记录中跟进处理状态',
+    feedback.success(
+      result.status === 'SUCCESS' ? '整单退款成功' : '退款申请已提交',
     )
     refundOpen.value = false
     await load()
   }
   catch (failure) {
     refundError.value
-      = failure instanceof Error ? failure.message : '退款申请失败，请核对退款记录后重试'
+      = errorMessage(failure, '退款申请失败，请核对退款记录后重试')
   }
   finally {
     operating.value = false
@@ -350,11 +351,8 @@ onBeforeUnmount(() => {
         </Button>
       </template>
       <template #before>
-        <p v-if="error" role="alert" class="text-sm text-destructive break-words">
-          {{ error }}
-        </p>
         <p v-if="busy" role="status" class="text-sm text-muted-foreground">
-          正在处理支付请求，请勿重复提交…
+          处理中…
         </p>
       </template>
       <Table>
@@ -423,7 +421,7 @@ onBeforeUnmount(() => {
           </TableRow>
           <TableRow v-if="!orders.length && !busy">
             <TableCell :colspan="visibleColumns.length" class="h-24 text-center text-muted-foreground">
-              {{ error ? '订单加载失败，请重试。' : '暂无订单，请先配置真实支付应用与渠道。' }}
+              {{ error ? '订单加载失败，请重试。' : '暂无订单' }}
             </TableCell>
           </TableRow>
         </TableBody>
@@ -445,9 +443,7 @@ onBeforeUnmount(() => {
     </Dialog>
     <Dialog :open="Boolean(closeTarget)" @update:open="!$event && (closeTarget = null)">
       <DialogContent>
-        <DialogHeader><DialogTitle>关闭未支付订单</DialogTitle><DialogDescription>确认关闭订单「{{ closeTarget?.businessNo }}」？付款二维码将不再可用。</DialogDescription></DialogHeader><p v-if="error" role="alert" class="text-sm text-destructive">
-          {{ error }}
-        </p><DialogFooter>
+        <DialogHeader><DialogTitle>关闭未支付订单</DialogTitle><DialogDescription>确认关闭订单「{{ closeTarget?.businessNo }}」？付款二维码将不再可用。</DialogDescription></DialogHeader><DialogFooter>
           <Button variant="outline" :disabled="busy" @click="closeTarget = null">
             取消
           </Button><Button variant="destructive" :disabled="busy" @click="closeTarget && operate(closeTarget, 'close')">
@@ -457,10 +453,9 @@ onBeforeUnmount(() => {
       </DialogContent>
     </Dialog>
     <Dialog v-model:open="creating">
-      <DialogContent class="max-h-[85vh] overflow-y-auto">
+      <DialogContent :aria-describedby="undefined" class="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>创建扫码支付订单</DialogTitle>
-          <DialogDescription>仅供授权业务操作方使用，金额应与实际业务订单一致。</DialogDescription>
         </DialogHeader>
         <SailForm class="space-y-4" @submit.prevent="create()">
           <div class="space-y-2">
@@ -509,9 +504,7 @@ onBeforeUnmount(() => {
               :disabled="busy"
             />
           </div>
-          <p v-if="formError" role="alert" class="text-sm text-destructive break-words">
-            {{ formError }}
-          </p>
+
           <DialogFooter>
             <Button variant="outline" type="button" :disabled="busy" @click="creating = false">
               取消
@@ -542,14 +535,12 @@ onBeforeUnmount(() => {
             class="mx-auto max-w-full rounded-md"
           >
           <p v-if="viewed.status === 'PENDING'" class="text-center text-sm text-muted-foreground">
-            付款截止 {{ viewed.expiresAt }}，状态会自动更新。
+            付款截止 {{ viewed.expiresAt }}
           </p>
           <p v-if="!viewed.qrCode && viewed.status === 'PENDING'" class="text-sm">
-            渠道二维码尚未取得，请先查单；未过期时可用原单号重新获取。
+            暂无付款二维码
           </p>
-          <p v-if="detailError" role="alert" class="text-sm text-destructive break-words">
-            {{ detailError }}
-          </p>
+
           <div class="flex flex-wrap justify-center gap-2">
             <Button variant="outline" :disabled="busy" @click="operate(viewed, 'sync')">
               主动查单
@@ -578,9 +569,7 @@ onBeforeUnmount(() => {
         <SailForm class="space-y-4" @submit.prevent="refund">
           <Label for="refund-reason">退款原因</Label>
           <Input id="refund-reason" v-model="reason" required maxlength="100" :disabled="busy" />
-          <p v-if="refundError" role="alert" class="text-sm text-destructive">
-            {{ refundError }}
-          </p>
+
           <DialogFooter>
             <Button type="button" variant="outline" :disabled="busy" @click="refundOpen = false">
               取消

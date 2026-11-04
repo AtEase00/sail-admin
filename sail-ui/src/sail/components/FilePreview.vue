@@ -8,7 +8,9 @@ import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue
 import type { PreviewFile } from '@/sail/file-preview'
 
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useMessageError } from '@/composables/use-message-error'
+import { errorMessage } from '@/lib/message'
 import { cleanDocumentHtml, officePreview, previewBlob, previewKind } from '@/sail/file-preview'
 import { saveMessageBlob } from '@/sail/message-center'
 
@@ -18,7 +20,7 @@ const props = defineProps<{ file?: PreviewFile }>()
 const emit = defineEmits<{ close: [] }>()
 const kind = computed(() => props.file ? previewKind(props.file.name) : 'unsupported')
 const busy = ref(false)
-const error = ref('')
+const error = useMessageError()
 const html = ref('')
 const text = ref('')
 const url = ref('')
@@ -164,7 +166,7 @@ async function load() {
   }
   catch (failure) {
     if (current === generation)
-      error.value = failure instanceof Error ? failure.message : '文件读取失败'
+      error.value = errorMessage(failure, '文件读取失败')
   }
   finally {
     if (current === generation)
@@ -178,7 +180,7 @@ async function download() {
   try {
     saveMessageBlob(blob.value ?? await previewBlob(props.file), props.file.name)
   }
-  catch (failure) { error.value = failure instanceof Error ? failure.message : '下载失败' }
+  catch (failure) { error.value = errorMessage(failure, '下载失败') }
 }
 watch(() => props.file, load, { immediate: true })
 watch([page, zoom, rotation], renderPdf)
@@ -188,12 +190,11 @@ onBeforeUnmount(release)
 <template>
   <ImagePreview v-if="kind === 'image'" :src="url" :alt="file?.name" :loading="busy" :error="error" :open="!!file" @close="emit('close')" />
   <Dialog :open="!!file && kind !== 'image'" @update:open="!$event && emit('close')">
-    <DialogContent class="z-[90] flex h-[90dvh] max-h-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,94vw)]" overlay-class="z-[90] bg-black/40">
+    <DialogContent :aria-describedby="undefined" class="z-[90] flex h-[90dvh] max-h-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,94vw)]" overlay-class="z-[90] bg-black/40">
       <DialogHeader class="border-b px-5 py-4 pr-14">
         <DialogTitle class="truncate text-base">
           {{ file?.name }}
         </DialogTitle>
-        <DialogDescription>{{ kind === 'word' ? 'Word 内容预览，复杂版式以原文件为准' : kind === 'office-text' ? 'Office 文本预览，图片和原始版式请下载查看' : kind === 'sheet' ? '工作表预览，每张最多显示 1000 行、100 列' : kind === 'text' || kind === 'markdown' ? '文档预览，最多显示 200000 字符' : '文件预览' }}</DialogDescription>
       </DialogHeader>
       <div class="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-2">
         <template v-if="kind === 'pdf' && pdf">
@@ -228,10 +229,8 @@ onBeforeUnmount(release)
         <p v-if="busy" role="status" class="p-12 text-center text-sm text-muted-foreground">
           正在读取文件…
         </p>
-        <p v-else-if="error" role="alert" class="p-8 text-center text-sm text-destructive">
-          {{ error }}
-        </p>
-        <template v-else>
+
+        <template v-else-if="!error">
           <canvas v-if="kind === 'pdf'" ref="canvas" class="mx-auto max-w-none bg-white" />
           <article v-else-if="html" class="file-document mx-auto max-w-4xl bg-background p-6 sm:p-10" v-html="html" />
           <div v-else-if="kind === 'sheet' && sheets.length" class="overflow-auto bg-background">
